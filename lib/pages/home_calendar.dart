@@ -17,6 +17,12 @@ class _HomeCalendarState extends State<HomeCalendar> {
   late DateTime _selectedDay;
   late DateTime _today; // 缓存今天的日期
 
+   DateTime get _lastDayOfMonth {
+    final now = DateTime.now();
+    // DateTime(year, month + 1, 0) 是一个获取某月最后一天的技巧
+    return DateTime(now.year, now.month + 1, 0);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -27,6 +33,7 @@ class _HomeCalendarState extends State<HomeCalendar> {
 
   @override
   Widget build(BuildContext context) {
+    final isLastMonth = isSameMonth(_focusedDay, DateTime.now());
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -57,17 +64,16 @@ class _HomeCalendarState extends State<HomeCalendar> {
                 startingDayOfWeek: StartingDayOfWeek.monday,
                 locale: 'zh_CN', // 设置为简体中文
                 firstDay: DateTime.utc(2010, 10, 16),
-                lastDay: DateTime.utc(2030, 3, 14),
+                lastDay: _lastDayOfMonth,
                 focusedDay: _focusedDay,
                 selectedDayPredicate: (day) {
                   return isSameDay(_selectedDay, day);
                 },
                 calendarStyle: const CalendarStyle(
-                  selectedDecoration : BoxDecoration(
+                  selectedDecoration: BoxDecoration(
                     color: Color.fromRGBO(229, 129, 163, 1), // 选中日期的背景色
                     shape: BoxShape.circle,
-                    
-                  ),  
+                  ),
                   // 设置除周末外的日历文本样式
                   // defaultTextStyle: TextStyle(
                   //   fontSize: 20,
@@ -84,12 +90,37 @@ class _HomeCalendarState extends State<HomeCalendar> {
                   todayTextStyle: TextStyle(
                     // fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color:Color(0xFFE581A3),
+                    color: Color(0xFFE581A3),
                   ),
                   // 设置当前日期的容器样式
                   todayDecoration: BoxDecoration(
                     // color: Color(0xFFE581A3),
                     shape: BoxShape.circle,
+                  ),
+                ),
+                // 2. 页面改变时的回调 (防止滑动到未来月份)
+                onPageChanged: (focusedDay) {
+
+                  final now = DateTime.now();
+                  if (focusedDay.year > now.year ||
+                      (focusedDay.year == now.year &&
+                          focusedDay.month > now.month)) {
+                    return; // 阻止状态更新，所以日历不会翻页
+                  }
+
+                  // 如果不是未来月份，就更新状态以显示新页面
+                  setState(() {
+                    _focusedDay = focusedDay;
+                  });
+                },
+
+                // 3. 自定义头部样式 (动态隐藏右箭头)
+                headerStyle: HeaderStyle(
+                  // 检查当前显示的月份是否是最后一个允许的月份
+                  rightChevronIcon: Icon(
+                    Icons.chevron_right,
+                    // 如果是最后一个月，颜色为灰色，否则为黑色
+                    color: isLastMonth ? Colors.grey : Colors.black,
                   ),
                 ),
 
@@ -135,6 +166,11 @@ class _HomeCalendarState extends State<HomeCalendar> {
       ),
     );
   }
+}
+
+// 一个辅助函数，用来判断两个日期是否在同一个月
+bool isSameMonth(DateTime a, DateTime b) {
+  return a.year == b.year && a.month == b.month;
 }
 
 // 辅助函数：判断两个日期是否是同一天 (忽略时间)
