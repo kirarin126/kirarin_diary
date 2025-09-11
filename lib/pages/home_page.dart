@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:first/pages/home_calendar.dart';
-import 'package:first/pages/myPage.dart';
+import 'package:first/pages/my_page.dart';
 import 'package:first/pages/home_content.dart';
 
 class HomePage extends StatefulWidget {
@@ -23,14 +23,7 @@ class _HomePageState extends State<HomePage>  with AutomaticKeepAliveClientMixin
     return DefaultTabController(
       length: 3,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('果果日记'),
-          centerTitle: true,
-          backgroundColor: const Color(0xFFE581A3),
-          actions: [
-            IconButton(icon: const Icon(Icons.search), onPressed: () {}),
-          ],
-        ),
+    
         drawer: Drawer(
           child: ListView(
             padding: EdgeInsets.all(0),
@@ -99,7 +92,7 @@ class _HomePageState extends State<HomePage>  with AutomaticKeepAliveClientMixin
           onPressed: () async {
             await _homeContentKey.currentState?.getData();
           },
-          backgroundColor: const Color(0xFFE581A3),
+          // backgroundColor: const Color(0xFFE581A3),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(30),
           ),

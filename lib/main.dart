@@ -36,7 +36,24 @@ class MyApp extends StatelessWidget {
         // ... 其他支持的语言
       ],
       locale: const Locale('zh', 'CN'), // 设置默认语言为简体中文
-      theme: ThemeData(primarySwatch: Colors.blue),
+      theme: ThemeData(
+        primarySwatch: const MaterialColor(
+          0xFFE581A3,
+          <int, Color>{
+            50: Color(0xFFE581A3),
+            100: Color(0xFFE581A3),
+            200: Color(0xFFE581A3),
+            300: Color(0xFFE581A3),
+            400: Color(0xFFE581A3),
+            500: Color(0xFFE581A3),
+            600: Color(0xFFE581A3),
+            700: Color(0xFFE581A3),
+            800: Color(0xFFE581A3),
+            900: Color(0xFFE581A3),
+          },
+        ), // 设置主题颜色
+        scaffoldBackgroundColor: const Color(0xFFFAFAFA), // 设置全局背景色为白色
+      ),
       home: const HomePage(),
     );
   }
