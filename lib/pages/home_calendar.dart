@@ -3,9 +3,6 @@ import 'package:table_calendar/table_calendar.dart';
 
 class HomeCalendar extends StatefulWidget {
   final String name;
-
-  // 1. 添加 'const' 到构造函数声明
-  // 2. 使用 'super.key' 简化语法
   const HomeCalendar({super.key, required this.name});
 
   @override
@@ -15,11 +12,25 @@ class HomeCalendar extends StatefulWidget {
 class _HomeCalendarState extends State<HomeCalendar> {
   late DateTime _focusedDay;
   late DateTime _selectedDay;
-  late DateTime _today; // 缓存今天的日期
+  late DateTime _today;
 
-   DateTime get _lastDayOfMonth {
+  final List<Map<String, String>> records = [
+    {
+      'title': '9月11日15:16:16',
+      'note': '今天的便便状态良好，颜色正常，形状适中。',
+    },
+    {
+      'title': '9月11日10:30:00',
+      'note': '有点稀，可能是因为昨晚吃了辣的。'
+    },
+    {
+      'title': '9月11日10:30:00',
+      'note': '非常顺畅，感觉很好！'
+    },
+  ];
+
+  DateTime get _lastDayOfMonth {
     final now = DateTime.now();
-    // DateTime(year, month + 1, 0) 是一个获取某月最后一天的技巧
     return DateTime(now.year, now.month + 1, 0);
   }
 
@@ -33,150 +44,165 @@ class _HomeCalendarState extends State<HomeCalendar> {
 
   @override
   Widget build(BuildContext context) {
-    final isLastMonth = isSameMonth(_focusedDay, DateTime.now());
+    final isLastMonth = _focusedDay.year == DateTime.now().year && _focusedDay.month == DateTime.now().month;
     return Scaffold(
       body: SafeArea(
-        child: Column(
-          children: [
-            Container(
-              margin: const EdgeInsets.all(16.0), // 外边距
-              padding: const EdgeInsets.all(0), // 内边距
-              decoration: BoxDecoration(
-                color: Colors.white, // 背景色
-                borderRadius: BorderRadius.circular(12.0), // 圆角
-                boxShadow: const [
-                  // 阴影
-                  BoxShadow(
-                    color: Colors.grey,
-                    blurRadius: 4.0,
-                    offset: Offset(0, 1),
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(0),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12.0),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color.fromARGB(255, 218, 210, 210),
+                      blurRadius: 4.0,
+                      offset: Offset(1, 1),
+                    ),
+                  ],
+                ),
+                child: TableCalendar(
+                  availableCalendarFormats: const {
+                    CalendarFormat.month: 'Month',
+                  },
+                  calendarFormat: CalendarFormat.month,
+                  startingDayOfWeek: StartingDayOfWeek.monday,
+                  locale: 'zh_CN',
+                  firstDay: DateTime.utc(2010, 10, 16),
+                  lastDay: _lastDayOfMonth,
+                  focusedDay: _focusedDay,
+                  selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+                  calendarStyle: const CalendarStyle(
+                    selectedDecoration: BoxDecoration(
+                      color: Color.fromRGBO(229, 129, 163, 1),
+                      shape: BoxShape.circle,
+                    ),
+                    todayTextStyle: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFE581A3),
+                    ),
+                    todayDecoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                ],
+                  onPageChanged: (focusedDay) {
+                    final now = DateTime.now();
+                    if (focusedDay.year > now.year ||
+                        (focusedDay.year == now.year && focusedDay.month > now.month)) {
+                      return;
+                    }
+                    setState(() {
+                      _focusedDay = focusedDay;
+                    });
+                  },
+                  headerStyle: HeaderStyle(
+                    rightChevronIcon: Icon(
+                      Icons.chevron_right,
+                      color: isLastMonth ? Colors.grey : Colors.black,
+                    ),
+                  ),
+                  onDaySelected: (selectedDay, focusedDay) {
+                    setState(() {
+                      _selectedDay = selectedDay;
+                      _focusedDay = focusedDay;
+                    });
+                  },
+                  enabledDayPredicate: (day) => !day.isAfter(_today),
+                  calendarBuilders: CalendarBuilders(
+                    dowBuilder: (context, day) {
+                      final weekday = day.weekday;
+                      final labels = ['一', '二', '三', '四', '五', '六', '日'];
+                      final label = labels[weekday - 1];
+                      return Center(
+                        child: Text(
+                          label,
+                          style: const TextStyle(fontSize: 12.0),
+                        ),
+                      );
+                    },
+                  ),
+                ),
               ),
-              child: TableCalendar(
-                availableCalendarFormats: const {
-                  CalendarFormat.month: 'Month', // 只保留月视图
-                  // CalendarFormat.twoWeeks: '2 weeks', // 移除这一行
-                  // CalendarFormat.week: 'Week', // 如果你也不想要周视图按钮，也移除这行
-                },
-                calendarFormat: CalendarFormat.month, // 默认显示月视图
-                // --- 本地化设置 ---
-                startingDayOfWeek: StartingDayOfWeek.monday,
-                locale: 'zh_CN', // 设置为简体中文
-                firstDay: DateTime.utc(2010, 10, 16),
-                lastDay: _lastDayOfMonth,
-                focusedDay: _focusedDay,
-                selectedDayPredicate: (day) {
-                  return isSameDay(_selectedDay, day);
-                },
-                calendarStyle: const CalendarStyle(
-                  selectedDecoration: BoxDecoration(
-                    color: Color.fromRGBO(229, 129, 163, 1), // 选中日期的背景色
-                    shape: BoxShape.circle,
-                  ),
-                  // 设置除周末外的日历文本样式
-                  // defaultTextStyle: TextStyle(
-                  //   fontSize: 20,
-                  //   color: Color(0xFF666666),
-                  //   fontWeight: FontWeight.w600,
-                  // ),
-                  // // 设置周末的文本样式
-                  // weekendTextStyle: TextStyle(
-                  //   fontSize: 20,
-                  //   color: Color(0xFFFF0000),
-                  //   fontWeight: FontWeight.bold,
-                  // ),
-                  // // 设置当前日期的文本样式
-                  todayTextStyle: TextStyle(
-                    // fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFE581A3),
-                  ),
-                  // 设置当前日期的容器样式
-                  todayDecoration: BoxDecoration(
-                    // color: Color(0xFFE581A3),
-                    shape: BoxShape.circle,
-                  ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                alignment: Alignment.centerLeft,
+                child: const Text(
+                  '便便记录',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF393939)),
                 ),
-                // 2. 页面改变时的回调 (防止滑动到未来月份)
-                onPageChanged: (focusedDay) {
-
-                  final now = DateTime.now();
-                  if (focusedDay.year > now.year ||
-                      (focusedDay.year == now.year &&
-                          focusedDay.month > now.month)) {
-                    return; // 阻止状态更新，所以日历不会翻页
-                  }
-
-                  // 如果不是未来月份，就更新状态以显示新页面
-                  setState(() {
-                    _focusedDay = focusedDay;
-                  });
-                },
-
-                // 3. 自定义头部样式 (动态隐藏右箭头)
-                headerStyle: HeaderStyle(
-                  // 检查当前显示的月份是否是最后一个允许的月份
-                  rightChevronIcon: Icon(
-                    Icons.chevron_right,
-                    // 如果是最后一个月，颜色为灰色，否则为黑色
-                    color: isLastMonth ? Colors.grey : Colors.black,
-                  ),
-                ),
-
-                onDaySelected: (selectedDay, focusedDay) {
-                  print('选择的日期是: $selectedDay');
-                  // enabledDayPredicate 会阻止未来日期被选中，所以这里无需额外检查
-                  setState(() {
-                    _selectedDay = selectedDay;
-                    _focusedDay = focusedDay;
-                  });
-                },
-
-                // --- 核心逻辑 1: 控制可点击性 ---
-                enabledDayPredicate: (day) {
-                  // 今天和今天之前的日期可点击 (day <= today)
-                  return !day.isAfter(_today);
-                },
-                // --- 核心逻辑 2: 自定义样式 ---
-                calendarBuilders: CalendarBuilders(
-                  // --- 核心修改：自定义星期标题 ---
-                  dowBuilder: (context, day) {
-                    // `day` 是一个代表星期几的 DateTime 对象 (e.g., 1970-01-05 是 Monday)
-                    final weekday = day.weekday; // 1=Monday, 7=Sunday
-
-                    // 定义只包含一个字符的中文星期标题
-                    final labels = ['一', '二', '三', '四', '五', '六', '日'];
-
-                    // weekday - 1 是因为 weekday 从 1 开始，而 List 索引从 0 开始
-                    final label = labels[weekday - 1];
-
-                    return Center(
-                      child: Text(
-                        label,
-                        style: const TextStyle(fontSize: 12.0), // 可根据需要调整样式
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Column(
+                  children: records.map((record) {
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.07),
+                            blurRadius: 4,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 10.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(left: 12.0, right: 12.0, bottom: 8.0),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      record['title'] ?? '',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                      // overflow: TextOverflow.ellipsis, //超出部分省略
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(left: 12.0, right: 12.0, bottom: 0),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '备注: ${record['note'] ?? ''}',
+                                      style: const TextStyle(fontSize: 14, color: Color(0xFF888888)),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     );
-                  },
+                  }).toList(),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
-}
 
-// 一个辅助函数，用来判断两个日期是否在同一个月
-bool isSameMonth(DateTime a, DateTime b) {
-  return a.year == b.year && a.month == b.month;
-}
-
-// 辅助函数：判断两个日期是否是同一天 (忽略时间)
-bool isSameDay(DateTime? a, DateTime? b) {
-  if (a == null || b == null) {
-    return false;
+  // 判断两个日期是否是同一天 (忽略时间)
+  bool isSameDay(DateTime? a, DateTime? b) {
+    if (a == null || b == null) {
+      return false;
+    }
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
-  return a.year == b.year && a.month == b.month && a.day == b.day;
 }

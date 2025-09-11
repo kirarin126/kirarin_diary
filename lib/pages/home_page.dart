@@ -92,7 +92,7 @@ class _HomePageState extends State<HomePage>  with AutomaticKeepAliveClientMixin
           onPressed: () async {
             await _homeContentKey.currentState?.getData();
           },
-          // backgroundColor: const Color(0xFFE581A3),
+          backgroundColor: const Color(0xFFE581A3),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(30),
           ),
