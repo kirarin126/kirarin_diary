@@ -19,34 +19,23 @@ class HomeContentState extends State<HomeContent> {
   @override
   void initState() {
     super.initState();
-    getData();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      itemCount: 24,
-      itemBuilder: (context, index) {
-        return InkWell(
-          // 👈 推荐用 InkWell（有水波纹效果）
-          onTap: () {
-            // 👇 点击跳转到详情页
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => HomeCalendar(name: '宝宝${index + 1}'),
-              ),
-            );
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
-            ),
-            child: Row(children: [Text('这是${widget.name}的第 $index 条数据')]),
-          ),
-        );
-      },
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('首页'),
+        titleTextStyle: TextStyle(
+          fontSize: 16,
+          color: const Color.fromARGB(255, 78, 76, 76),
+        ),
+        toolbarHeight: 44,
+        centerTitle: true,
+        backgroundColor: const Color(0xFFF4F4F4),
+        actions: [],
+      ),
+      body: const Center(child: Text('功能开发中,敬请期待!')),
     );
   }
 

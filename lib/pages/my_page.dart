@@ -37,7 +37,7 @@ class _MyPageState extends State<MyPage> {
           ),
         ],
       ),
-      body: const Center(child: Text('这是我的页面')),
+      body: const Center(child: Text('我好喜欢你呀!')),
     );
   }
 }

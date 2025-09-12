@@ -87,17 +87,17 @@ class _HomePageState extends State<HomePage>  with AutomaticKeepAliveClientMixin
             MyPage(),
           ],
         ),
-        floatingActionButton: FloatingActionButton(
-          // 悬浮按钮
-          onPressed: () async {
-            await _homeContentKey.currentState?.getData();
-          },
-          backgroundColor: const Color(0xFFE581A3),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
-          ),
-          child: const Icon(Icons.add, color: Colors.white),
-        ),
+        // floatingActionButton: FloatingActionButton(
+        //   // 悬浮按钮
+        //   onPressed: () async {
+        //     await _homeContentKey.currentState?.getData();
+        //   },
+        //   backgroundColor: const Color(0xFFE581A3),
+        //   shape: RoundedRectangleBorder(
+        //     borderRadius: BorderRadius.circular(30),
+        //   ),
+        //   child: const Icon(Icons.add, color: Colors.white),
+        // ),
 
         bottomNavigationBar: BottomNavigationBar(
           items: const [
