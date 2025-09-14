@@ -1,7 +1,9 @@
 // lib/main.dart
 
 import 'package:flutter/material.dart';
-import 'package:first/pages/home_page.dart'; // ✅ 引入 home_page.dart
+import 'package:first/pages/home_page.dart';
+import 'package:first/pages/login_page.dart';
+import 'package:first/pages/register_page.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_localizations/flutter_localizations.dart'; // 导入
 import 'package:flutter/services.dart';
@@ -23,19 +25,17 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'kirarin',
-      // 添加本地化代理和配置
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [
-        Locale('en', ''), // English
-        Locale('zh', 'CN'), // Chinese (Mainland)
-        Locale('zh', 'TW'), // Chinese (Taiwan)
-        // ... 其他支持的语言
+        Locale('en', ''),
+        Locale('zh', 'CN'),
+        Locale('zh', 'TW'),
       ],
-      locale: const Locale('zh', 'CN'), // 设置默认语言为简体中文
+      locale: const Locale('zh', 'CN'),
       theme: ThemeData(
         primarySwatch: const MaterialColor(
           0xFFE581A3,
@@ -51,10 +51,15 @@ class MyApp extends StatelessWidget {
             800: Color(0xFFE581A3),
             900: Color(0xFFE581A3),
           },
-        ), // 设置主题颜色
-        scaffoldBackgroundColor: const Color(0xFFFAFAFA), // 设置全局背景色为白色
+        ),
+        scaffoldBackgroundColor: const Color(0xFFFAFAFA),
       ),
-      home: const HomePage(),
+      initialRoute: '/login',
+      routes: {
+        '/login': (context) => const LoginPage(),
+        '/register': (context) => const RegisterPage(),
+        '/home': (context) => const HomePage(),
+      },
     );
   }
 }

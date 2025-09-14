@@ -1,0 +1,54 @@
+[
+  {
+    "name": "CoCo",
+    "logo_url": "./logos/coco.webp"
+  },
+  {
+    "name": "蜜雪冰城",
+    "logo_url": "./logos/蜜雪冰城.webp"
+  },
+  {
+    "name": "喜茶",
+    "logo_url": "./logos/喜茶.webp"
+  },
+  {
+    "name": "一点点",
+    "logo_url": "./logos/一点点.webp"
+  },
+  {
+    "name": "茶百道",
+    "logo_url": "./logos/茶百道.jpeg"
+  },
+  {
+    "name": "卡旺卡",
+    "logo_url": "./logos/卡旺卡.png"
+  },
+  {
+    "name": "霸王茶姬",
+    "logo_url": "./logos/霸王茶姬.jpeg"
+  },
+  {
+    "name": "古茗",
+    "logo_url": "./logos/古茗.png"
+  },
+  {
+    "name": "瑞幸咖啡",
+    "logo_url": "./logos/瑞幸咖啡.webp"
+  },
+  {
+    "name": "沪上阿姨",
+    "logo_url": "./logos/沪上阿姨.png"
+  },
+  {
+    "name": "茉莉奶白",
+    "logo_url": "./logos/茉莉奶白.png"
+  },
+  {
+    "name": "库迪咖啡",
+    "logo_url": "./logos/库迪咖啡.jpeg"
+  },
+  {
+    "name": "正邦苏卡",
+    "logo_url": "./logos/正邦苏卡.webp"
+  }
+]

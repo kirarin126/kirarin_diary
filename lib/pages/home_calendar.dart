@@ -12,10 +12,21 @@ class HomeCalendar extends StatefulWidget {
 }
 
 class _HomeCalendarState extends State<HomeCalendar> {
+  final List<String> modes = ['洗头', '便便', '喝奶茶'];
+  int selectedModeIndex = 0;
   // 编辑记录弹窗
   Future<void> _showEditRecordDialog(int index) async {
+    final currentMode = modes[selectedModeIndex];
     String note = records[index]['note'] ?? '';
     final controller = TextEditingController(text: note);
+    // 生成时间点选项（每半小时一个，00:00~23:30）
+    final List<String> timeOptions = List.generate(24 * 2, (i) {
+      final h = (i ~/ 2).toString().padLeft(2, '0');
+      final m = (i % 2 == 0) ? '00' : '30';
+      return '$h:$m';
+    });
+    String selectedTime = records[index]['time'] ?? timeOptions[DateTime.now().hour * 2 + (DateTime.now().minute >= 30 ? 1 : 0)];
+
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -34,7 +45,30 @@ class _HomeCalendarState extends State<HomeCalendar> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Text('当前模式：$currentMode', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFFE581A3))),
+              const SizedBox(height: 8),
               const Text('编辑备注', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  const Text('时间点：', style: TextStyle(fontSize: 15)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: selectedTime,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      items: timeOptions.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                      onChanged: (v) {
+                        if (v != null) selectedTime = v;
+                      },
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 16),
               TextField(
                 autofocus: true,
@@ -72,6 +106,11 @@ class _HomeCalendarState extends State<HomeCalendar> {
                       if (note.trim().isNotEmpty) {
                         setState(() {
                           records[index]['note'] = note.trim();
+                          records[index]['time'] = selectedTime;
+                          // 同步title
+                          final date = _selectedDay;
+                          records[index]['title'] = '${date.month}月${date.day}日$selectedTime';
+                          records[index]['mode'] = currentMode;
                         });
                         await _saveRecords();
                         if (!mounted) return;
@@ -125,6 +164,15 @@ class _HomeCalendarState extends State<HomeCalendar> {
   Future<void> _showAddRecordDialog() async {
     String note = '';
     final controller = TextEditingController();
+    final currentMode = modes[selectedModeIndex];
+    // 生成时间点选项（每半小时一个，00:00~23:30）
+    final List<String> timeOptions = List.generate(24 * 2, (i) {
+      final h = (i ~/ 2).toString().padLeft(2, '0');
+      final m = (i % 2 == 0) ? '00' : '30';
+      return '$h:$m';
+    });
+    String selectedTime = timeOptions[DateTime.now().hour * 2 + (DateTime.now().minute >= 30 ? 1 : 0)];
+
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -143,7 +191,30 @@ class _HomeCalendarState extends State<HomeCalendar> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Text('当前模式：$currentMode', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFFE581A3))),
+              const SizedBox(height: 8),
               const Text('添加', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  const Text('时间：', style: TextStyle(fontSize: 15)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: selectedTime,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      items: timeOptions.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                      onChanged: (v) {
+                        if (v != null) selectedTime = v;
+                      },
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 16),
               TextField(
                 autofocus: true,
@@ -180,13 +251,14 @@ class _HomeCalendarState extends State<HomeCalendar> {
                     onPressed: () async {
                       if (note.trim().isNotEmpty) {
                         setState(() {
-                          final now = DateTime.now();
-                          final title =
-                              '${now.month}月${now.day}日${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+                          final date = _selectedDay;
+                          final title = '${date.month}月${date.day}日$selectedTime';
                           records.insert(0, {
                             'title': title,
                             'note': note.trim(),
-                            'date': now.toIso8601String().substring(0, 10), // yyyy-MM-dd
+                            'date': date.toIso8601String().substring(0, 10), // yyyy-MM-dd
+                            'time': selectedTime,
+                            'mode': currentMode,
                           });
                         });
                         await _saveRecords();
@@ -224,16 +296,43 @@ class _HomeCalendarState extends State<HomeCalendar> {
     final isLastMonth =
         _focusedDay.year == DateTime.now().year &&
         _focusedDay.month == DateTime.now().month;
-    // 过滤出选中日期的记录
-    String selectedDateStr = _selectedDay.toIso8601String().substring(0, 10); // yyyy-MM-dd
-    List<Map<String, String>> todayRecords = records.where((r) => r['date'] == selectedDateStr).toList();
+  // 过滤出选中日期和当前模式的记录
+  String selectedDateStr = _selectedDay.toIso8601String().substring(0, 10); // yyyy-MM-dd
+  String currentMode = modes[selectedModeIndex];
+  List<Map<String, String>> todayRecords = records.where((r) => r['date'] == selectedDateStr && r['mode'] == currentMode).toList();
 
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              // ...existing code...
+    return DefaultTabController(
+      length: modes.length,
+      initialIndex: selectedModeIndex,
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0.5,
+          centerTitle: true,
+          title: const Text('习惯', style: TextStyle(color: Color(0xFF393939), fontWeight: FontWeight.bold, fontSize: 20)),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(48),
+            child: Container(
+              color: Colors.white,
+              child: TabBar(
+                labelColor: const Color(0xFFE581A3),
+                unselectedLabelColor: Colors.black54,
+                indicatorColor: const Color(0xFFE581A3),
+                tabs: modes.map((m) => Tab(text: m)).toList(),
+                onTap: (idx) {
+                  setState(() {
+                    selectedModeIndex = idx;
+                  });
+                },
+              ),
+            ),
+          ),
+        ),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                // ...existing code...
               Container(
                 margin: const EdgeInsets.all(16.0),
                 padding: const EdgeInsets.all(0),
@@ -316,7 +415,7 @@ class _HomeCalendarState extends State<HomeCalendar> {
                 ),
                 alignment: Alignment.centerLeft,
                 child: const Text(
-                  '便便记录',
+                  '记录',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -438,7 +537,8 @@ class _HomeCalendarState extends State<HomeCalendar> {
         backgroundColor: const Color(0xFFE581A3),
         child: const Icon(Icons.add, color: Colors.white),
       ),
-    );
+    ),
+  );
   }
 
   // 判断两个日期是否是同一天 (忽略时间)

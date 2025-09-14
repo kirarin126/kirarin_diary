@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingPage extends StatefulWidget {
   const SettingPage({super.key});
@@ -21,7 +22,11 @@ class _SettingPageState extends State<SettingPage> {
       backgroundColor: const Color(0xFFFAFAFA), // 设置整个页面的背景色
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF393939), size: 20), 
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            color: Color(0xFF393939),
+            size: 20,
+          ),
           onPressed: () => Navigator.of(context).maybePop(),
         ),
         title: const Text('设置'),
@@ -84,12 +89,23 @@ class _SettingPageState extends State<SettingPage> {
             ),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: () {
-                // 处理退出登录逻辑
+              onPressed: () async {
+                // 清除本地登录状态
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.clear();
+                if (!mounted) return;
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/login',
+                  (route) => false,
+                );
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFFFFFF),
-                minimumSize: const Size(double.infinity, 44), // 设置按钮宽度为屏幕宽度，高度为44
+                minimumSize: const Size(
+                  double.infinity,
+                  44,
+                ), // 设置按钮宽度为屏幕宽度，高度为44
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12), // 圆角
                 ),
