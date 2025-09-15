@@ -2,6 +2,17 @@ import 'package:http/http.dart' as http;
 import 'request.dart';
 
 class ApiService {
+  // 获取用户资料
+  static Future<http.Response> getProfile() async {
+    return await Request.get('/users/profile');
+  }
+  // 修改用户名
+  static Future<http.Response> changeUsername(String newUsername) async {
+    return await Request.put(
+      '/users/change-username',
+      body: {'username': newUsername},
+    );
+  }
   // 用户注册
   static Future<http.Response> register({
     required String username,
@@ -45,7 +56,7 @@ class ApiService {
   }) async {
     return await Request.put(
       '/users/update-username',
-      body: {'newUsername': newUsername},
+      body: {'new_username': newUsername},
     );
   }
 
@@ -62,12 +73,12 @@ class ApiService {
 
   // 重置密码
   static Future<http.Response> resetPassword({
-    required String adminPassword,
-    required String newPassword,
+    required String username,
+    required String inviteCode,
   }) async {
     return await Request.post(
       '/users/reset-password',
-      body: {'admin_password': adminPassword, 'new_password': newPassword},
+      body: {'username': username, 'invite_code': inviteCode},
     );
   }
 }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../utils/api.dart';
+import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
@@ -17,55 +19,51 @@ class _LoginPageState extends State<LoginPage> {
   bool _isLoading = false;
 
   Future<void> _login() async {
+    final logger = Logger();
     final username = usernameController.text.trim();
     final password = passwordController.text;
     if (username.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入用户名和密码')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请输入用户名和密码')));
       return;
     }
- 
+
     setState(() {
       _isLoading = true;
     });
     try {
-      // 1. 先加密密码
-      final encryptResp = await ApiService.encryptPassword(password: password);
-      if (encryptResp.statusCode != 200) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('密码加密失败: \\${encryptResp.body}')));
-        setState(() { _isLoading = false; });
-        return;
-      }
-      final encrypted = encryptResp.body;
-      // 若后端返回json格式 {"password": "xxxx"}，可用如下方式：
-      // final encrypted = jsonDecode(encryptResp.body)['password'];
+      logger.i('用户名: $username, 密码: $password');
 
       // 2. 登录
-      http.Response response = await ApiService.login(username: username, password: encrypted);
-      // 打印响应状态码和内容
-      print('Response status: \\${response.statusCode}');
-
-      if (response.statusCode == 200) {
-        // 打印响应内容
-        print('Response body: \\${response.body}');
-       
-        // 假设后端返回json: {"access_token": "..."}
-        final token = response.body;
-        // final token = jsonDecode(response.body)['access_token'];
+      http.Response response = await ApiService.login(
+        username: username,
+        password: password,
+      );
+      final body = response.body;
+      final Map<String, dynamic> jsonMap = json.decode(body);
+      if (jsonMap.containsKey('code')) {
+        // 登录失败
+        final error = jsonMap['error'] ?? '未知错误';
+        logger.e('登录失败: $error');
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('登录失败: $error')));
+      } else {
+        // 登录成功
+        final token = jsonMap['access_token'];
+        logger.i('登录成功, token: $token');
         final prefs = await SharedPreferences.getInstance();
+
         await prefs.setString('token', token);
+        await prefs.setString('username', username); // 保存用户名
         if (!mounted) return;
         Navigator.pushReplacementNamed(context, '/home');
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('登录失败: \\${response.body}')),
-        );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('登录异常: \\${e.toString()}')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('登录异常: \\${e.toString()}')));
     } finally {
       if (mounted) {
         setState(() {
@@ -78,10 +76,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('登录'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('登录'), centerTitle: true),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(

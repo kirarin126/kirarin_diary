@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../account_profile_page.dart';
+
 
 class SettingPage extends StatefulWidget {
   const SettingPage({super.key});
@@ -9,12 +11,27 @@ class SettingPage extends StatefulWidget {
 }
 
 class _SettingPageState extends State<SettingPage> {
-  final List<Map<String, dynamic>> settings = [
-    {'icon': Icons.people_alt_outlined, 'title': '账号与安全', 'onTap': () {}},
-    {'icon': Icons.color_lens, 'title': '主题设置', 'onTap': () {}},
-    {'icon': Icons.font_download, 'title': '字体设置', 'onTap': () {}},
-    {'icon': Icons.info, 'title': '关于我们', 'onTap': () {}},
-  ];
+  final List<Map<String, dynamic>> settings = [];
+
+  @override
+  void initState() {
+    super.initState();
+    settings.addAll([
+      {
+        'icon': Icons.people_alt_outlined,
+        'title': '账号资料',
+        'onTap': () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AccountProfilePage()),
+          );
+        },
+      },
+      {'icon': Icons.color_lens, 'title': '主题设置', 'onTap': () {}},
+      {'icon': Icons.font_download, 'title': '字体设置', 'onTap': () {}},
+      {'icon': Icons.info, 'title': '关于我们', 'onTap': () {}},
+    ]);
+  }
 
   @override
   Widget build(BuildContext context) {

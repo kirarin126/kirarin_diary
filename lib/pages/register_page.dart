@@ -27,21 +27,15 @@ class _RegisterPageState extends State<RegisterPage> {
     }
     setState(() { _isLoading = true; });
     try {
-      // 1. 先加密密码
-      final encryptResp = await ApiService.encryptPassword(password: password);
-      if (encryptResp.statusCode != 200) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('密码加密失败: \\${encryptResp.body}')));
-        setState(() { _isLoading = false; });
-        return;
-      }
-      final encrypted = encryptResp.body;
+    
+
       // 若后端返回json格式 {"password": "xxxx"}，可用如下方式：
       // final encrypted = jsonDecode(encryptResp.body)['password'];
 
       // 2. 注册
       final regResp = await ApiService.register(
         username: username,
-        password: encrypted,
+        password: password,
         inviteCode: inviteCode,
       );
       if (regResp.statusCode == 200) {

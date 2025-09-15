@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/api.dart';
 
 class ResetPasswordPage extends StatefulWidget {
   const ResetPasswordPage({super.key});
@@ -10,50 +12,49 @@ class ResetPasswordPage extends StatefulWidget {
 class _ResetPasswordPageState extends State<ResetPasswordPage> {
   final TextEditingController adminPasswordController = TextEditingController();
   final TextEditingController newPasswordController = TextEditingController();
-  final TextEditingController confirmPasswordController = TextEditingController();
+  final TextEditingController confirmPasswordController =
+      TextEditingController();
   bool _isLoading = false;
 
   Future<void> _resetPassword() async {
     final adminPassword = adminPasswordController.text;
     final newPassword = newPasswordController.text;
     final confirmPassword = confirmPasswordController.text;
-    if (adminPassword.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请填写所有字段')),
-      );
+    if (adminPassword.isEmpty ||
+        newPassword.isEmpty ||
+        confirmPassword.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请填写所有字段')));
       return;
     }
     if (newPassword != confirmPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('两次输入的新密码不一致')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('两次输入的新密码不一致')));
       return;
     }
     setState(() {
       _isLoading = true;
     });
     try {
-      // TODO: 替换为你的后端密码重置接口
-      await Future.delayed(const Duration(seconds: 1)); // 占位符
-      // 示例：
-      // final response = await http.post(Uri.parse('https://your-api.com/api/reset-password'), body: {
-      //   'adminPassword': adminPassword,
-      //   'newPassword': newPassword,
-      // });
-      // if (response.statusCode == 200) {
-      //   if (!mounted) return;
-      //   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('密码重置成功')));
-      //   Navigator.pop(context);
-      // } else {
-      //   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('重置失败: \\${response.body}')));
-      // }
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('密码重置成功(演示)')));
-      Navigator.pop(context);
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('重置异常: \\${e.toString()}')),
+      await ApiService.resetPassword(
+        username: adminPassword,
+        inviteCode: newPassword,
       );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('密码重置成功')));
+      // 清除本地登录状态
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('重置异常: \\${e.toString()}')));
     } finally {
       if (mounted) {
         setState(() {
@@ -66,10 +67,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('重置密码'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('重置密码'), centerTitle: true),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
