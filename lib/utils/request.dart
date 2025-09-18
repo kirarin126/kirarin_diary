@@ -97,7 +97,7 @@ class Request {
       if (responseInterceptor != null) {
         response = await responseInterceptor!(response);
       }
-      return response;
+      return _processResponse(response);
     } on TimeoutException {
       return http.Response('{"error": "请求超时"}', 504);
     } on http.ClientException catch (e) {
@@ -114,18 +114,41 @@ http.Response _processResponse(http.Response response) {
   try {
     final body = response.body;
     if (body.isEmpty) return response;
+    
     final Map<String, dynamic> jsonMap = json.decode(body);
-    if(jsonMap.containsKey('code')) {
+    
+    if (jsonMap.containsKey('code')) {
       final code = jsonMap['code'];
-      if (code != 200) {
-        print('接口返回错误: \\${jsonMap['error']}');
+      
+      if (code == 200) {
+        // 请求成功，返回 {code, data, message} 结构
+        final data = jsonMap['data'];
+        final message = jsonMap['message'] ?? '请求成功';
+        final successResponse = {
+          'code': code,
+          'data': data,
+          'message': message,
+        };
+        print('请求成功: $successResponse');
+        return http.Response(json.encode(successResponse), response.statusCode);
+      } else {
+        // 请求失败，返回 {code, error, message} 结构
         final error = jsonMap['error'] ?? '未知错误';
-        return http.Response(json.encode({'error': error}), code);
+        final message = jsonMap['message'] ?? '请求失败';
+        final errorResponse = {
+          'code': code,
+          'error': error,
+          'message': message,
+        };
+        print('请求失败: $errorResponse');
+        return http.Response(json.encode(errorResponse), response.statusCode);
       }
     }
-
+    
+    // 如果没有code字段，直接返回原响应
     return response;
-  } catch (_) {
+  } catch (e) {
+    print('响应解析异常: $e');
     return response;
   }
 }

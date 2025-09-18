@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/api.dart';
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ChangeUsernamePage extends StatefulWidget {
@@ -24,15 +25,26 @@ class _ChangeUsernamePageState extends State<ChangeUsernamePage> {
       final resp = await ApiService.updateUsername(newUsername: newUsername);
       print('Response status: \\${resp.statusCode}');
       print('Response body: \\${resp.body}');
-      if (resp.statusCode == 200) {
- 
-      //  更新本地存储的用户名
+      
+      final Map<String, dynamic> jsonMap = json.decode(resp.body);
+      
+      if (jsonMap['code'] == 200) {
+        // 修改成功
+        final message = jsonMap['message'] ?? '修改成功';
+        
+        // 更新本地存储的用户名
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('username', newUsername);
-        if (!mounted) return;
         
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        // 跳转到登录页并清空页面栈
+        Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('修改失败: \\${resp.body}')));
+        // 修改失败
+        final error = jsonMap['error'] ?? '未知错误';
+        final message = jsonMap['message'] ?? '修改失败';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$message: $error')));
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('异常: \\${e.toString()}')));

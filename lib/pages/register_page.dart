@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/api.dart';
+import 'dart:convert';
 
 
 class RegisterPage extends StatefulWidget {
@@ -11,6 +12,8 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
   bool _isLoading = false;
+  bool _isPasswordVisible = false;
+  bool _isConfirmPasswordVisible = false;
 
   Future<void> _register() async {
     final username = usernameController.text.trim();
@@ -38,12 +41,21 @@ class _RegisterPageState extends State<RegisterPage> {
         password: password,
         inviteCode: inviteCode,
       );
-      if (regResp.statusCode == 200) {
+      
+      final body = regResp.body;
+      final Map<String, dynamic> jsonMap = json.decode(body);
+      
+      if (jsonMap['code'] == 200) {
+        // 注册成功
+        final message = jsonMap['message'] ?? '注册成功';
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('注册成功')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
         Navigator.pop(context);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('注册失败: \\${regResp.body}')));
+        // 注册失败
+        final error = jsonMap['error'] ?? '未知错误';
+        final message = jsonMap['message'] ?? '注册失败';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$message: $error')));
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('异常: \\${e.toString()}')));
@@ -83,19 +95,39 @@ class _RegisterPageState extends State<RegisterPage> {
             const SizedBox(height: 20),
             TextField(
               controller: passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(
+              obscureText: !_isPasswordVisible,
+              decoration: InputDecoration(
                 labelText: '密码',
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _isPasswordVisible = !_isPasswordVisible;
+                    });
+                  },
+                ),
               ),
             ),
             const SizedBox(height: 20),
             TextField(
               controller: confirmController,
-              obscureText: true,
-              decoration: const InputDecoration(
+              obscureText: !_isConfirmPasswordVisible,
+              decoration: InputDecoration(
                 labelText: '确认密码',
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _isConfirmPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                    });
+                  },
+                ),
               ),
             ),
 

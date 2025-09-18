@@ -82,7 +82,7 @@ class _HomePageState extends State<HomePage>  with AutomaticKeepAliveClientMixin
         body: IndexedStack(
           index: _currentIndex,
           children: [
-            HomeContent(key: _homeContentKey, name: '果果'),
+            // HomeContent(key: _homeContentKey, name: '果果'),
             HomeCalendar(name: '测试',),
             MyPage(),
           ],
@@ -101,7 +101,7 @@ class _HomePageState extends State<HomePage>  with AutomaticKeepAliveClientMixin
 
         bottomNavigationBar: BottomNavigationBar(
           items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: '首页'),
+            // BottomNavigationBarItem(icon: Icon(Icons.home), label: '首页'),
             BottomNavigationBarItem(
               icon: Icon(Icons.calendar_today),
               label: '日历',

@@ -17,6 +17,7 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController passwordController = TextEditingController();
 
   bool _isLoading = false;
+  bool _isPasswordVisible = false;
 
   Future<void> _login() async {
     final logger = Logger();
@@ -33,7 +34,7 @@ class _LoginPageState extends State<LoginPage> {
       _isLoading = true;
     });
     try {
-      logger.i('用户名: $username, 密码: $password');
+      // logger.i('用户名: $username, 密码: $password');
 
       // 2. 登录
       http.Response response = await ApiService.login(
@@ -42,23 +43,27 @@ class _LoginPageState extends State<LoginPage> {
       );
       final body = response.body;
       final Map<String, dynamic> jsonMap = json.decode(body);
-      if (jsonMap.containsKey('code')) {
-        // 登录失败
-        final error = jsonMap['error'] ?? '未知错误';
-        logger.e('登录失败: $error');
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('登录失败: $error')));
-      } else {
+      
+      if (jsonMap['code'] == 200) {
         // 登录成功
-        final token = jsonMap['access_token'];
-        logger.i('登录成功, token: $token');
+        final data = jsonMap['data'];
+        final token = data['access_token'];
+        final message = jsonMap['message'] ?? '登录成功';
+        // logger.i('登录成功: $message, token: $token');
+        
         final prefs = await SharedPreferences.getInstance();
-
         await prefs.setString('token', token);
         await prefs.setString('username', username); // 保存用户名
+        
         if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
         Navigator.pushReplacementNamed(context, '/home');
+      } else {
+        // 登录失败
+        final error = jsonMap['error'] ?? '未知错误';
+        final message = jsonMap['message'] ?? '登录失败';
+        logger.e('登录失败: $message - $error');
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$message: $error')));
       }
     } catch (e) {
       ScaffoldMessenger.of(
@@ -92,10 +97,20 @@ class _LoginPageState extends State<LoginPage> {
             const SizedBox(height: 20),
             TextField(
               controller: passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(
+              obscureText: !_isPasswordVisible,
+              decoration: InputDecoration(
                 labelText: '密码',
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _isPasswordVisible = !_isPasswordVisible;
+                    });
+                  },
+                ),
               ),
             ),
             const SizedBox(height: 30),

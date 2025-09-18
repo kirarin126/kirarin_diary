@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../utils/api.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'change_username_page.dart';
+import 'dart:convert';
+import 'update_password_page.dart';
 
 class AccountProfilePage extends StatefulWidget {
   const AccountProfilePage({super.key});
@@ -25,10 +27,10 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
           _loading = false;
         });
       } else {
-        // await _fetchProfile();
+        await _fetchProfile();
       }
     } catch (_) {
-      // await _fetchProfile();
+      await _fetchProfile();
     }
   }
 
@@ -43,12 +45,16 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
     try {
       // 假设有 /users/profile 接口
       final resp = await ApiService.getProfile();
-      if (resp.statusCode == 200) {
-        // final data = jsonDecode(resp.body);
-        // setState(() { username = data['username']; });
-        setState(() { username = resp.body; }); // 演示用
+      final Map<String, dynamic> jsonMap = json.decode(resp.body);
+      
+      if (jsonMap['code'] == 200) {
+        // 获取成功
+        final data = jsonMap['data'];
+        setState(() { username = data['username'] ?? '未知用户'; });
       } else {
-        setState(() { username = '获取失败'; });
+        // 获取失败
+        final error = jsonMap['error'] ?? '获取失败';
+        setState(() { username = error; });
       }
     } catch (_) {
       setState(() { username = '获取失败'; });
@@ -78,6 +84,17 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                             MaterialPageRoute(builder: (_) => const ChangeUsernamePage()),
                           );
                           _loadLocalUsername();
+                        },
+                      ),
+                      ListTile(
+                        title: const Text('修改密码'),
+                        subtitle: const Text('修改账户密码'),
+                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                        onTap: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const UpdatePasswordPage()),
+                          );
                         },
                       ),
                       // 可扩展更多资料项
@@ -139,11 +156,18 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
   Future<void> _resetPassword(String inviteCode) async {
     try {
       // 假设有 /users/reset-password 接口
-        final resp = await ApiService.resetPassword(username: username ?? '', inviteCode: inviteCode);
-      if (resp.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('重置密码成功')));
+      final resp = await ApiService.resetPassword(username: username ?? '', inviteCode: inviteCode);
+      final Map<String, dynamic> jsonMap = json.decode(resp.body);
+      
+      if (jsonMap['code'] == 200) {
+        // 重置成功
+        final message = jsonMap['message'] ?? '重置密码成功';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('重置失败: \\${resp.body}')));
+        // 重置失败
+        final error = jsonMap['error'] ?? '未知错误';
+        final message = jsonMap['message'] ?? '重置失败';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$message: $error')));
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('异常: \\${e.toString()}')));
