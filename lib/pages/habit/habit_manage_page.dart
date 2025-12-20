@@ -54,6 +54,105 @@ class _HabitManagePageState extends State<HabitManagePage> {
     _saveHabits();
   }
 
+  // 删除习惯
+  Future<void> _deleteHabit(int index) async {
+    setState(() {
+      _habits.removeAt(index);
+      // 重新排序
+      for (int i = 0; i < _habits.length; i++) {
+        _habits[i].sortOrder = i;
+      }
+    });
+    await _saveHabits();
+  }
+
+  // 显示删除确认弹窗
+  Future<bool?> _showDeleteConfirmDialog(HabitConfig habit) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  '确认删除自定义习惯吗？',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  '删除后，此习惯相关的历史记录也将一并清空。',
+                  style: TextStyle(fontSize: 14, color: Colors.black54),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          side: BorderSide(color: Colors.grey.shade300),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                        ),
+                        child: const Text(
+                          '取消',
+                          style: TextStyle(fontSize: 16, color: Colors.black54),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFE581A3), Color(0xFFEC8BA4)],
+                          ),
+                          borderRadius: BorderRadius.circular(25),
+                        ),
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.of(context).pop(true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(25),
+                            ),
+                          ),
+                          child: const Text(
+                            '确认',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _navigateToAddHabit() async {
     final result = await Navigator.of(context).push<HabitConfig>(
       MaterialPageRoute(builder: (context) => const AddHabitPage()),
@@ -107,33 +206,6 @@ class _HabitManagePageState extends State<HabitManagePage> {
                     },
                   ),
                 ),
-                // 底部提示
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 8,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '1、关闭后，仅隐藏对应习惯入口，不会清空历史数据。',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '2、按住习惯上下拖动，可调整排序。',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
                 // 添加习惯按钮
                 Container(
                   width: double.infinity,
@@ -141,7 +213,7 @@ class _HabitManagePageState extends State<HabitManagePage> {
                   child: ElevatedButton(
                     onPressed: _navigateToAddHabit,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF4A90E2),
+                      backgroundColor: const Color(0xFFE581A3),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       elevation: 0,
@@ -164,69 +236,99 @@ class _HabitManagePageState extends State<HabitManagePage> {
   }
 
   Widget _buildHabitItem(HabitConfig habit, int index) {
-    return Container(
+    return ClipRRect(
       key: ValueKey(habit.id),
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(5),
-            blurRadius: 5,
-            offset: const Offset(0, 2),
+      borderRadius: BorderRadius.circular(12),
+      child: Dismissible(
+        key: Key('dismissible_${habit.id}'),
+        direction: DismissDirection.endToStart,
+        confirmDismiss: (direction) async {
+          return await _showDeleteConfirmDialog(habit);
+        },
+        onDismissed: (direction) {
+          _deleteHabit(index);
+        },
+        background: Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            color: Colors.red,
+            borderRadius: BorderRadius.circular(12),
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // 图标
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: habit.color.withAlpha(25),
-              borderRadius: BorderRadius.circular(10),
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 30),
+          child: const Text(
+            '删除',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
             ),
-            child: Center(
-              child: Text(
-                habit.icon,
-                style: TextStyle(
-                  fontSize: habit.icon.length == 1 ? 20 : 24,
-                  color: habit.color,
-                  fontWeight: FontWeight.bold,
+          ),
+        ),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(5),
+                blurRadius: 5,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              // 图标
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: habit.color.withAlpha(25),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Center(
+                  child: Text(
+                    habit.icon,
+                    style: TextStyle(
+                      fontSize: habit.icon.length == 1 ? 20 : 24,
+                      color: habit.color,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          // 习惯名称
-          Expanded(
-            child: Text(
-              habit.name,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Colors.black87,
+              const SizedBox(width: 12),
+              // 习惯名称
+              Expanded(
+                child: Text(
+                  habit.name,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black87,
+                  ),
+                ),
               ),
-            ),
+              // 开关
+              Switch(
+                value: habit.isEnabled,
+                onChanged: (value) => _toggleHabit(index, value),
+                activeColor: const Color(0xFFE581A3),
+              ),
+              // 拖动手柄
+              ReorderableDragStartListener(
+                index: index,
+                child: const Padding(
+                  padding: EdgeInsets.only(left: 8),
+                  child: Icon(Icons.menu, color: Colors.grey, size: 24),
+                ),
+              ),
+            ],
           ),
-          // 开关
-          Switch(
-            value: habit.isEnabled,
-            onChanged: (value) => _toggleHabit(index, value),
-            activeColor: const Color(0xFF4A90E2),
-          ),
-          // 拖动手柄
-          ReorderableDragStartListener(
-            index: index,
-            child: const Padding(
-              padding: EdgeInsets.only(left: 8),
-              child: Icon(Icons.menu, color: Colors.grey, size: 24),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

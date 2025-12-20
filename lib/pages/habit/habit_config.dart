@@ -50,28 +50,12 @@ class HabitConfigManager {
   // 默认习惯列表
   static List<HabitConfig> get defaultHabits => [
     HabitConfig(
-      id: 'fullness',
-      name: '饱腹感',
-      icon: '👆',
-      color: const Color(0xFFFF9800),
-      isEnabled: false,
-      sortOrder: 0,
-    ),
-    HabitConfig(
-      id: 'water',
-      name: '多喝水',
-      icon: '💧',
-      color: const Color(0xFF2196F3),
-      isEnabled: false,
-      sortOrder: 1,
-    ),
-    HabitConfig(
       id: 'poop',
       name: '便便',
       icon: '💩',
       color: const Color(0xFF795548),
       isEnabled: true,
-      sortOrder: 2,
+      sortOrder: 0,
     ),
     HabitConfig(
       id: 'wash_hair',
@@ -79,15 +63,15 @@ class HabitConfigManager {
       icon: '洗',
       color: const Color(0xFFE581A3),
       isEnabled: true,
-      sortOrder: 3,
+      sortOrder: 1,
     ),
     HabitConfig(
       id: 'period',
-      name: '大姨妈',
+      name: '生理期',
       icon: '🩸',
       color: const Color(0xFFE581A3),
       isEnabled: true,
-      sortOrder: 4,
+      sortOrder: 2,
     ),
     HabitConfig(
       id: 'exercise',
@@ -95,7 +79,7 @@ class HabitConfigManager {
       icon: '🏃',
       color: const Color(0xFF4CAF50),
       isEnabled: false,
-      sortOrder: 5,
+      sortOrder: 3,
     ),
     HabitConfig(
       id: 'early_rise',
@@ -103,7 +87,7 @@ class HabitConfigManager {
       icon: '☀️',
       color: const Color(0xFFFFEB3B),
       isEnabled: false,
-      sortOrder: 6,
+      sortOrder: 4,
     ),
     HabitConfig(
       id: 'early_sleep',
@@ -111,15 +95,7 @@ class HabitConfigManager {
       icon: '🌙',
       color: const Color(0xFF673AB7),
       isEnabled: false,
-      sortOrder: 7,
-    ),
-    HabitConfig(
-      id: 'nucleic_acid',
-      name: '做核酸',
-      icon: '💉',
-      color: const Color(0xFF00BCD4),
-      isEnabled: false,
-      sortOrder: 8,
+      sortOrder: 5,
     ),
   ];
 
