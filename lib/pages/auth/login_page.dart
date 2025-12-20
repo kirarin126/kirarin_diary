@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../utils/api.dart';
+import '../../utils/api.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
@@ -43,27 +43,31 @@ class _LoginPageState extends State<LoginPage> {
       );
       final body = response.body;
       final Map<String, dynamic> jsonMap = json.decode(body);
-      
+
       if (jsonMap['code'] == 200) {
         // 登录成功
         final data = jsonMap['data'];
         final token = data['access_token'];
         final message = jsonMap['message'] ?? '登录成功';
         // logger.i('登录成功: $message, token: $token');
-        
+
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('token', token);
         await prefs.setString('username', username); // 保存用户名
-        
+
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
         Navigator.pushReplacementNamed(context, '/home');
       } else {
         // 登录失败
         final error = jsonMap['error'] ?? '未知错误';
         final message = jsonMap['message'] ?? '登录失败';
         logger.e('登录失败: $message - $error');
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$message: $error')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$message: $error')));
       }
     } catch (e) {
       ScaffoldMessenger.of(
@@ -103,7 +107,9 @@ class _LoginPageState extends State<LoginPage> {
                 border: const OutlineInputBorder(),
                 suffixIcon: IconButton(
                   icon: Icon(
-                    _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                    _isPasswordVisible
+                        ? Icons.visibility
+                        : Icons.visibility_off,
                   ),
                   onPressed: () {
                     setState(() {

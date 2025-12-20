@@ -2,8 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:first/pages/main_page.dart';
-import 'package:first/pages/login_page.dart';
-import 'package:first/pages/register_page.dart';
+import 'package:first/pages/auth/login_page.dart';
+import 'package:first/pages/auth/register_page.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_localizations/flutter_localizations.dart'; // 导入
 import 'package:flutter/services.dart';

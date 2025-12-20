@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../utils/api.dart';
+import '../../utils/api.dart';
 import 'dart:convert';
 
 class ResetPasswordPage extends StatefulWidget {
@@ -46,16 +46,18 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
         username: adminPassword,
         inviteCode: newPassword,
       );
-      
+
       final Map<String, dynamic> jsonMap = json.decode(resp.body);
-      
+
       if (jsonMap['code'] == 200) {
         // 重置成功
         final message = jsonMap['message'] ?? '密码重置成功';
-        
+
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-        
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
+
         // 清除本地登录状态
         final prefs = await SharedPreferences.getInstance();
         await prefs.clear();
@@ -64,7 +66,9 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
         // 重置失败
         final error = jsonMap['error'] ?? '未知错误';
         final message = jsonMap['message'] ?? '重置失败';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$message: $error')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$message: $error')));
       }
     } catch (e) {
       ScaffoldMessenger.of(
@@ -96,7 +100,9 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                 border: const OutlineInputBorder(),
                 suffixIcon: IconButton(
                   icon: Icon(
-                    _isAdminPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                    _isAdminPasswordVisible
+                        ? Icons.visibility
+                        : Icons.visibility_off,
                   ),
                   onPressed: () {
                     setState(() {
@@ -115,7 +121,9 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                 border: const OutlineInputBorder(),
                 suffixIcon: IconButton(
                   icon: Icon(
-                    _isNewPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                    _isNewPasswordVisible
+                        ? Icons.visibility
+                        : Icons.visibility_off,
                   ),
                   onPressed: () {
                     setState(() {
@@ -134,7 +142,9 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                 border: const OutlineInputBorder(),
                 suffixIcon: IconButton(
                   icon: Icon(
-                    _isConfirmPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                    _isConfirmPasswordVisible
+                        ? Icons.visibility
+                        : Icons.visibility_off,
                   ),
                   onPressed: () {
                     setState(() {

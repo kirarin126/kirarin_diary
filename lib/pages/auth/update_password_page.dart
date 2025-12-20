@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../utils/api.dart';
+import '../../utils/api.dart';
 import 'dart:convert';
 
 class UpdatePasswordPage extends StatefulWidget {
@@ -12,7 +12,8 @@ class UpdatePasswordPage extends StatefulWidget {
 class _UpdatePasswordPageState extends State<UpdatePasswordPage> {
   final TextEditingController oldPasswordController = TextEditingController();
   final TextEditingController newPasswordController = TextEditingController();
-  final TextEditingController confirmPasswordController = TextEditingController();
+  final TextEditingController confirmPasswordController =
+      TextEditingController();
 
   bool _isLoading = false;
   bool _isOldPasswordVisible = false;
@@ -25,30 +26,30 @@ class _UpdatePasswordPageState extends State<UpdatePasswordPage> {
     final confirmPassword = confirmPasswordController.text.trim();
 
     if (oldPassword.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请填写所有密码字段')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请填写所有密码字段')));
       return;
     }
 
     if (newPassword != confirmPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('两次输入的新密码不一致')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('两次输入的新密码不一致')));
       return;
     }
 
     if (newPassword.length < 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('新密码长度至少6位')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('新密码长度至少6位')));
       return;
     }
 
     if (oldPassword == newPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('新密码不能与旧密码相同')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('新密码不能与旧密码相同')));
       return;
     }
 
@@ -69,9 +70,9 @@ class _UpdatePasswordPageState extends State<UpdatePasswordPage> {
         final message = jsonMap['message'] ?? '密码更新成功';
 
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
 
         // 清空输入框
         oldPasswordController.clear();
@@ -89,16 +90,16 @@ class _UpdatePasswordPageState extends State<UpdatePasswordPage> {
         final error = jsonMap['error'] ?? '未知错误';
         final message = jsonMap['message'] ?? '密码更新失败';
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('$message: $error')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('$message: $error')));
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('更新异常: ${e.toString()}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('更新异常: ${e.toString()}')));
       }
     } finally {
       if (mounted) {
@@ -112,10 +113,7 @@ class _UpdatePasswordPageState extends State<UpdatePasswordPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('修改密码'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('修改密码'), centerTitle: true),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -213,10 +211,7 @@ class _UpdatePasswordPageState extends State<UpdatePasswordPage> {
             // 密码要求提示
             const Text(
               '密码要求：\n• 长度至少6位\n• 新密码不能与旧密码相同',
-              style: TextStyle(
-                color: Colors.grey,
-                fontSize: 12,
-              ),
+              style: TextStyle(color: Colors.grey, fontSize: 12),
               textAlign: TextAlign.center,
             ),
           ],

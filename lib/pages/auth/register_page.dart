@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import '../utils/api.dart';
+import '../../utils/api.dart';
 import 'dart:convert';
-
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -20,18 +19,25 @@ class _RegisterPageState extends State<RegisterPage> {
     final password = passwordController.text;
     final confirmPassword = confirmController.text;
     final inviteCode = inviteCodeController.text.trim();
-    if (username.isEmpty || password.isEmpty || confirmPassword.isEmpty || inviteCode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请填写所有字段')));
+    if (username.isEmpty ||
+        password.isEmpty ||
+        confirmPassword.isEmpty ||
+        inviteCode.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请填写所有字段')));
       return;
     }
     if (password != confirmPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('两次输入的密码不一致')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('两次输入的密码不一致')));
       return;
     }
-    setState(() { _isLoading = true; });
+    setState(() {
+      _isLoading = true;
+    });
     try {
-    
-
       // 若后端返回json格式 {"password": "xxxx"}，可用如下方式：
       // final encrypted = jsonDecode(encryptResp.body)['password'];
 
@@ -41,28 +47,38 @@ class _RegisterPageState extends State<RegisterPage> {
         password: password,
         inviteCode: inviteCode,
       );
-      
+
       final body = regResp.body;
       final Map<String, dynamic> jsonMap = json.decode(body);
-      
+
       if (jsonMap['code'] == 200) {
         // 注册成功
         final message = jsonMap['message'] ?? '注册成功';
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
         Navigator.pop(context);
       } else {
         // 注册失败
         final error = jsonMap['error'] ?? '未知错误';
         final message = jsonMap['message'] ?? '注册失败';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$message: $error')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$message: $error')));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('异常: \\${e.toString()}')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('异常: \\${e.toString()}')));
     } finally {
-      if (mounted) setState(() { _isLoading = false; });
+      if (mounted)
+        setState(() {
+          _isLoading = false;
+        });
     }
   }
+
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmController = TextEditingController();
@@ -101,7 +117,9 @@ class _RegisterPageState extends State<RegisterPage> {
                 border: const OutlineInputBorder(),
                 suffixIcon: IconButton(
                   icon: Icon(
-                    _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                    _isPasswordVisible
+                        ? Icons.visibility
+                        : Icons.visibility_off,
                   ),
                   onPressed: () {
                     setState(() {
@@ -120,7 +138,9 @@ class _RegisterPageState extends State<RegisterPage> {
                 border: const OutlineInputBorder(),
                 suffixIcon: IconButton(
                   icon: Icon(
-                    _isConfirmPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                    _isConfirmPasswordVisible
+                        ? Icons.visibility
+                        : Icons.visibility_off,
                   ),
                   onPressed: () {
                     setState(() {
@@ -137,7 +157,11 @@ class _RegisterPageState extends State<RegisterPage> {
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _register,
                 child: _isLoading
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     : const Text('注册'),
               ),
             ),

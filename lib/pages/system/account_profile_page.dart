@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../utils/api.dart';
+import '../../utils/api.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'change_username_page.dart';
 import 'dart:convert';
-import 'update_password_page.dart';
+import '../auth/update_password_page.dart';
 
 class AccountProfilePage extends StatefulWidget {
   const AccountProfilePage({super.key});
@@ -17,7 +17,9 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
   bool _loading = true;
 
   Future<void> _loadLocalUsername() async {
-    setState(() { _loading = true; });
+    setState(() {
+      _loading = true;
+    });
     try {
       final prefs = await SharedPreferences.getInstance();
       final localName = prefs.getString('username');
@@ -41,25 +43,35 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
   }
 
   Future<void> _fetchProfile() async {
-    setState(() { _loading = true; });
+    setState(() {
+      _loading = true;
+    });
     try {
       // 假设有 /users/profile 接口
       final resp = await ApiService.getProfile();
       final Map<String, dynamic> jsonMap = json.decode(resp.body);
-      
+
       if (jsonMap['code'] == 200) {
         // 获取成功
         final data = jsonMap['data'];
-        setState(() { username = data['username'] ?? '未知用户'; });
+        setState(() {
+          username = data['username'] ?? '未知用户';
+        });
       } else {
         // 获取失败
         final error = jsonMap['error'] ?? '获取失败';
-        setState(() { username = error; });
+        setState(() {
+          username = error;
+        });
       }
     } catch (_) {
-      setState(() { username = '获取失败'; });
+      setState(() {
+        username = '获取失败';
+      });
     } finally {
-      setState(() { _loading = false; });
+      setState(() {
+        _loading = false;
+      });
     }
   }
 
@@ -81,7 +93,9 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                         onTap: () async {
                           await Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => const ChangeUsernamePage()),
+                            MaterialPageRoute(
+                              builder: (_) => const ChangeUsernamePage(),
+                            ),
                           );
                           _loadLocalUsername();
                         },
@@ -93,7 +107,9 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
                         onTap: () async {
                           await Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => const UpdatePasswordPage()),
+                            MaterialPageRoute(
+                              builder: (_) => const UpdatePasswordPage(),
+                            ),
                           );
                         },
                       ),
@@ -139,7 +155,9 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
               onPressed: () async {
                 final code = inviteCodeController.text.trim();
                 if (code.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请输入邀请码')));
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('请输入邀请码')));
                   return;
                 }
                 Navigator.pop(context);
@@ -156,21 +174,30 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
   Future<void> _resetPassword(String inviteCode) async {
     try {
       // 假设有 /users/reset-password 接口
-      final resp = await ApiService.resetPassword(username: username ?? '', inviteCode: inviteCode);
+      final resp = await ApiService.resetPassword(
+        username: username ?? '',
+        inviteCode: inviteCode,
+      );
       final Map<String, dynamic> jsonMap = json.decode(resp.body);
-      
+
       if (jsonMap['code'] == 200) {
         // 重置成功
         final message = jsonMap['message'] ?? '重置密码成功';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
       } else {
         // 重置失败
         final error = jsonMap['error'] ?? '未知错误';
         final message = jsonMap['message'] ?? '重置失败';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$message: $error')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$message: $error')));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('异常: \\${e.toString()}')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('异常: \\${e.toString()}')));
     }
   }
 }

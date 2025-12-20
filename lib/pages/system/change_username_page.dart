@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../utils/api.dart';
+import '../../utils/api.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -17,39 +17,54 @@ class _ChangeUsernamePageState extends State<ChangeUsernamePage> {
   Future<void> _submit() async {
     final newUsername = usernameController.text.trim();
     if (newUsername.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请输入新用户名')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请输入新用户名')));
       return;
     }
-    setState(() { _isLoading = true; });
+    setState(() {
+      _isLoading = true;
+    });
     try {
       final resp = await ApiService.updateUsername(newUsername: newUsername);
       print('Response status: \\${resp.statusCode}');
       print('Response body: \\${resp.body}');
-      
+
       final Map<String, dynamic> jsonMap = json.decode(resp.body);
-      
+
       if (jsonMap['code'] == 200) {
         // 修改成功
         final message = jsonMap['message'] ?? '修改成功';
-        
+
         // 更新本地存储的用户名
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('username', newUsername);
-        
+
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
         // 跳转到登录页并清空页面栈
-        Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/login', (route) => false);
       } else {
         // 修改失败
         final error = jsonMap['error'] ?? '未知错误';
         final message = jsonMap['message'] ?? '修改失败';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$message: $error')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$message: $error')));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('异常: \\${e.toString()}')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('异常: \\${e.toString()}')));
     } finally {
-      if (mounted) setState(() { _isLoading = false; });
+      if (mounted)
+        setState(() {
+          _isLoading = false;
+        });
     }
   }
 
@@ -75,7 +90,11 @@ class _ChangeUsernamePageState extends State<ChangeUsernamePage> {
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _submit,
                 child: _isLoading
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     : const Text('提交'),
               ),
             ),

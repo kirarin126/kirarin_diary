@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../account_profile_page.dart';
-
+import 'account_profile_page.dart';
 
 class SettingPage extends StatefulWidget {
   const SettingPage({super.key});
