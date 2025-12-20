@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:first/pages/home_calendar.dart';
+import 'package:first/pages/habit/habit_tracker_page.dart';
 import 'package:first/pages/my_page.dart';
-import 'package:first/pages/home_content.dart';
+import 'package:first/pages/dashboard_page.dart';
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+/// 主页面 - 包含底部导航栏的应用主框架
+class MainPage extends StatefulWidget {
+  const MainPage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<MainPage> createState() => _MainPageState();
 }
 
-class _HomePageState extends State<HomePage>  with AutomaticKeepAliveClientMixin{
+class _MainPageState extends State<MainPage>
+    with AutomaticKeepAliveClientMixin {
   int _currentIndex = 0;
-  final GlobalKey<HomeContentState> _homeContentKey = GlobalKey<HomeContentState>();
 
   @override
   bool get wantKeepAlive => true;
@@ -23,7 +24,6 @@ class _HomePageState extends State<HomePage>  with AutomaticKeepAliveClientMixin
     return DefaultTabController(
       length: 3,
       child: Scaffold(
-    
         drawer: Drawer(
           child: ListView(
             padding: EdgeInsets.all(0),
@@ -82,15 +82,16 @@ class _HomePageState extends State<HomePage>  with AutomaticKeepAliveClientMixin
         body: IndexedStack(
           index: _currentIndex,
           children: [
-            // HomeContent(key: _homeContentKey, name: '果果'),
-            HomeCalendar(name: '测试',),
+            DashboardPage(name: '果果'),
+            HabitTrackerPage(name: '测试'),
             MyPage(),
           ],
         ),
+
         // floatingActionButton: FloatingActionButton(
         //   // 悬浮按钮
         //   onPressed: () async {
-        //     await _homeContentKey.currentState?.getData();
+        //     await _dashboardKey.currentState?.getData();
         //   },
         //   backgroundColor: const Color(0xFFE581A3),
         //   shape: RoundedRectangleBorder(
@@ -98,18 +99,17 @@ class _HomePageState extends State<HomePage>  with AutomaticKeepAliveClientMixin
         //   ),
         //   child: const Icon(Icons.add, color: Colors.white),
         // ),
-
         bottomNavigationBar: BottomNavigationBar(
           items: const [
-            // BottomNavigationBarItem(icon: Icon(Icons.home), label: '首页'),
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: '首页'),
             BottomNavigationBarItem(
               icon: Icon(Icons.calendar_today),
-              label: '日历',
+              label: '习惯',
             ),
             BottomNavigationBarItem(icon: Icon(Icons.person), label: '我的'),
           ],
           type: BottomNavigationBarType.fixed,
-           currentIndex: _currentIndex,
+          currentIndex: _currentIndex,
           selectedItemColor: const Color(0xFFE581A3),
           onTap: (index) {
             setState(() {

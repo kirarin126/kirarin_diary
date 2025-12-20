@@ -1,21 +1,21 @@
-// 首页内容
+// 仪表盘页面 - 首页内容展示
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
-import './home_calendar.dart';
 
 Dio dio = Dio();
 
-class HomeContent extends StatefulWidget {
+/// 仪表盘页面 - 应用首页内容展示
+class DashboardPage extends StatefulWidget {
   // 接受一个name参数
   final String name;
 
-  const HomeContent({super.key, required this.name});
+  const DashboardPage({super.key, required this.name});
 
   @override
-  HomeContentState createState() => HomeContentState();
+  DashboardPageState createState() => DashboardPageState();
 }
 
-class HomeContentState extends State<HomeContent> {
+class DashboardPageState extends State<DashboardPage> {
   @override
   void initState() {
     super.initState();

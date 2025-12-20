@@ -1,7 +1,7 @@
 // lib/main.dart
 
 import 'package:flutter/material.dart';
-import 'package:first/pages/home_page.dart';
+import 'package:first/pages/main_page.dart';
 import 'package:first/pages/login_page.dart';
 import 'package:first/pages/register_page.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -37,28 +37,25 @@ class MyApp extends StatelessWidget {
       ],
       locale: const Locale('zh', 'CN'),
       theme: ThemeData(
-        primarySwatch: const MaterialColor(
-          0xFFE581A3,
-          <int, Color>{
-            50: Color(0xFFE581A3),
-            100: Color(0xFFE581A3),
-            200: Color(0xFFE581A3),
-            300: Color(0xFFE581A3),
-            400: Color(0xFFE581A3),
-            500: Color(0xFFE581A3),
-            600: Color(0xFFE581A3),
-            700: Color(0xFFE581A3),
-            800: Color(0xFFE581A3),
-            900: Color(0xFFE581A3),
-          },
-        ),
+        primarySwatch: const MaterialColor(0xFFE581A3, <int, Color>{
+          50: Color(0xFFE581A3),
+          100: Color(0xFFE581A3),
+          200: Color(0xFFE581A3),
+          300: Color(0xFFE581A3),
+          400: Color(0xFFE581A3),
+          500: Color(0xFFE581A3),
+          600: Color(0xFFE581A3),
+          700: Color(0xFFE581A3),
+          800: Color(0xFFE581A3),
+          900: Color(0xFFE581A3),
+        }),
         scaffoldBackgroundColor: const Color(0xFFFAFAFA),
       ),
-      initialRoute: '/login',
+      initialRoute: '/home',
       routes: {
         '/login': (context) => const LoginPage(),
         '/register': (context) => const RegisterPage(),
-        '/home': (context) => const HomePage(),
+        '/home': (context) => const MainPage(),
       },
     );
   }
