@@ -152,8 +152,6 @@ class HabitSummarySectionState extends State<HabitSummarySection> {
     final icon = config.icon;
     final iconColor = config.color;
     final bgColor = config.color.withAlpha(25);
-    // 判断图标是否为单个字符文字（非emoji）
-    final isTextIcon = icon.length == 1 && !_isEmoji(icon);
 
     return GestureDetector(
       onTap: () async {
@@ -191,13 +189,10 @@ class HabitSummarySectionState extends State<HabitSummarySection> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Center(
-                child: Text(
+                child: HabitConfigManager.getIconWidget(
                   icon,
-                  style: TextStyle(
-                    fontSize: isTextIcon ? 24 : 28,
-                    fontWeight: FontWeight.bold,
-                    color: isTextIcon ? iconColor : null,
-                  ),
+                  size: 28,
+                  color: iconColor,
                 ),
               ),
             ),
@@ -271,15 +266,6 @@ class HabitSummarySectionState extends State<HabitSummarySection> {
         ),
       ),
     );
-  }
-
-  // 简单判断是否为 emoji（基于字符长度）
-  bool _isEmoji(String s) {
-    if (s.isEmpty) return false;
-    final runes = s.runes.toList();
-    if (runes.isEmpty) return false;
-    // emoji 通常 unicode 码点 > 0x1000
-    return runes.first > 0x1000;
   }
 
   // 获取当天打卡次数
@@ -552,6 +538,11 @@ class HabitSummarySectionState extends State<HabitSummarySection> {
   }
 
   Widget _buildCheckbox(String mode) {
+    // 如果是生理期模式，使用 switch 按钮
+    if (mode == '生理期') {
+      return _buildPeriodSwitch(mode);
+    }
+
     final todayCount = _getTodayCount(mode);
     final hasCompleted = todayCount > 0;
 
@@ -586,5 +577,142 @@ class HabitSummarySectionState extends State<HabitSummarySection> {
             : null,
       ),
     );
+  }
+
+  // 构建生理期 Switch 按钮
+  Widget _buildPeriodSwitch(String mode) {
+    final hasRecord = _getTodayCount(mode) > 0;
+    final leftText = hasRecord ? '走了' : '来了';
+    final rightText = hasRecord ? '没走' : '没来';
+    final leftSelected = hasRecord;
+
+    return Container(
+      width: 100,
+      height: 36,
+      decoration: BoxDecoration(
+        color: const Color(0xFFFCE4EC),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE581A3), width: 1),
+      ),
+      child: Row(
+        children: [
+          // 左边按钮
+          Expanded(
+            child: GestureDetector(
+              onTap: () async {
+                if (!hasRecord) {
+                  // 点击"来了"添加记录
+                  await _addPeriodRecord();
+                } else {
+                  // 点击"走了"删除记录
+                  await _removeTodayPeriodRecords();
+                }
+              },
+              child: Container(
+                height: double.infinity,
+                margin: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: leftSelected
+                      ? const Color(0xFFE581A3)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  leftText,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: leftSelected
+                        ? Colors.white
+                        : const Color(0xFFE581A3),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // 右边按钮
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                // 右边按钮不执行操作
+              },
+              child: Container(
+                height: double.infinity,
+                margin: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: !leftSelected
+                      ? const Color(0xFFE581A3)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  rightText,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: !leftSelected
+                        ? Colors.white
+                        : const Color(0xFFE581A3),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 添加生理期记录 (自动填充接下来5天)
+  Future<void> _addPeriodRecord() async {
+    final now = DateTime.now();
+    // 从今天开始
+    final today = DateTime(now.year, now.month, now.day);
+
+    setState(() {
+      for (int i = 0; i < 6; i++) {
+        final date = today.add(Duration(days: i));
+        final dateStr = date.toIso8601String().substring(0, 10);
+
+        // 检查该日期是否已有生理期记录，避免重复
+        final hasRecord = records.any(
+          (r) => r['date'] == dateStr && r['mode'] == '生理期',
+        );
+
+        if (!hasRecord) {
+          final currentTime =
+              '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+          final formattedDateTime =
+              '${date.year}/${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')} $currentTime';
+
+          records.insert(0, {
+            'title': '${date.month}月${date.day}日 $currentTime',
+            'note': i == 0 ? '生理期开始' : '生理期自动填充',
+            'date': dateStr,
+            'time': currentTime,
+            'datetime': formattedDateTime,
+            'mode': '生理期',
+          });
+        }
+      }
+    });
+
+    // 保存记录
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_recordsKey, jsonEncode(records));
+  }
+
+  // 删除当天的生理期记录
+  Future<void> _removeTodayPeriodRecords() async {
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    setState(() {
+      records.removeWhere((r) => r['date'] == today && r['mode'] == '生理期');
+    });
+
+    // 保存记录
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_recordsKey, jsonEncode(records));
   }
 }

@@ -10,7 +10,10 @@ class HabitConfig {
   Color color;
   bool isEnabled;
   int sortOrder;
-  int weeklyGoal; // 每周打卡目标天数
+  int
+  weeklyGoal; // Keep for backward compatibility or migration? Let's keep it but prioritize new fields.
+  String goalType; // 'daily', 'weekly', 'none'
+  int targetValue; // times
 
   HabitConfig({
     required this.id,
@@ -20,6 +23,8 @@ class HabitConfig {
     this.isEnabled = true,
     this.sortOrder = 0,
     this.weeklyGoal = 7,
+    this.goalType = 'daily',
+    this.targetValue = 1,
   });
 
   Map<String, dynamic> toJson() => {
@@ -30,6 +35,8 @@ class HabitConfig {
     'isEnabled': isEnabled,
     'sortOrder': sortOrder,
     'weeklyGoal': weeklyGoal,
+    'goalType': goalType,
+    'targetValue': targetValue,
   };
 
   factory HabitConfig.fromJson(Map<String, dynamic> json) => HabitConfig(
@@ -40,6 +47,8 @@ class HabitConfig {
     isEnabled: json['isEnabled'] as bool? ?? true,
     sortOrder: json['sortOrder'] as int? ?? 0,
     weeklyGoal: json['weeklyGoal'] as int? ?? 7,
+    goalType: json['goalType'] as String? ?? 'daily',
+    targetValue: json['targetValue'] as int? ?? 1,
   );
 }
 
@@ -146,5 +155,57 @@ class HabitConfigManager {
       configs[i].sortOrder = i;
     }
     await saveConfigs(configs);
+  }
+
+  // Update Habit (existing)
+  static Future<void> updateHabit(HabitConfig habit) async {
+    final configs = await loadConfigs();
+    final index = configs.indexWhere((c) => c.id == habit.id);
+    if (index >= 0) {
+      configs[index] = habit;
+      await saveConfigs(configs);
+    }
+  }
+
+  // --- Icon Helpers ---
+
+  static String serializeIcon(IconData icon) {
+    return jsonEncode({
+      'codePoint': icon.codePoint,
+      'fontFamily': icon.fontFamily,
+      'fontPackage': icon.fontPackage,
+    });
+  }
+
+  static IconData? deserializeIcon(String iconStr) {
+    try {
+      if (!iconStr.trim().startsWith('{')) return null;
+      final Map<String, dynamic> map = jsonDecode(iconStr);
+      return IconData(
+        map['codePoint'] as int,
+        fontFamily: map['fontFamily'] as String?,
+        fontPackage: map['fontPackage'] as String?,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Widget getIconWidget(String iconStr, {double? size, Color? color}) {
+    final iconData = deserializeIcon(iconStr);
+    if (iconData != null) {
+      return Icon(iconData, size: size, color: color);
+    }
+    // Fallback to text (emoji/char)
+    return Text(
+      iconStr,
+      style: TextStyle(
+        fontSize: size ?? 24,
+        color: color,
+        fontWeight: FontWeight.bold,
+        // Emojis don't always respect color, but text does
+      ),
+      textAlign: TextAlign.center,
+    );
   }
 }

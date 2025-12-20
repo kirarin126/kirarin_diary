@@ -21,6 +21,7 @@ class HabitTrackerPage extends StatefulWidget {
 
 class _HabitTrackerPageState extends State<HabitTrackerPage> {
   List<String> modes = [];
+  List<HabitConfig> habitConfigs = [];
   int selectedModeIndex = 0;
   late DateTime _focusedDay;
   late DateTime _selectedDay;
@@ -54,6 +55,7 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
     }
 
     setState(() {
+      habitConfigs = configs;
       modes = modesList;
       records = loadedRecords;
       // 确保 initialModeIndex 在有效范围内
@@ -71,11 +73,6 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
     await prefs.setString(_recordsKey, jsonEncode(records));
   }
 
-  DateTime get _lastDayOfMonth {
-    final now = DateTime.now();
-    return DateTime(now.year, now.month + 1, 0);
-  }
-
   // 判断两个日期是否是同一天 (忽略时间)
   bool isSameDay(DateTime? a, DateTime? b) {
     if (a == null || b == null) return false;
@@ -89,6 +86,209 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
     return records
         .where((r) => r['date'] == dateStr && r['mode'] == currentMode)
         .toList();
+  }
+
+  // 判断当前模式是否为生理期
+  bool get _isPeriodMode {
+    if (selectedModeIndex >= habitConfigs.length) return false;
+    return habitConfigs[selectedModeIndex].id == 'period';
+  }
+
+  // 判断选中日期是否有生理期记录
+  bool get _hasTodayPeriodRecord {
+    final dateStr = _selectedDay.toIso8601String().substring(0, 10);
+    return records.any((r) => r['date'] == dateStr && r['mode'] == '生理期');
+  }
+
+  // 获取预测的生理期日期（浅粉色显示）
+  // 基于上个月第一天的记录，预测当月（focusedDay）的开始日期，周期为6天
+  List<DateTime> _getPredictedPeriodDates() {
+    final currentMode = modes.isNotEmpty && selectedModeIndex < modes.length
+        ? modes[selectedModeIndex]
+        : '';
+    if (currentMode != '生理期') return [];
+
+    // 计算上一个月
+    // DateTime(year, month, day) handle month overflow/underflow automatically
+    // e.g. month 0 becomes December of previous year
+    final previousMonthDate = DateTime(
+      _focusedDay.year,
+      _focusedDay.month - 1,
+      1,
+    );
+
+    // 查找上个月是否有记录
+    final prevMonthRecords = records.where((r) {
+      final date = DateTime.tryParse(r['date'] ?? '');
+      return date != null &&
+          date.year == previousMonthDate.year &&
+          date.month == previousMonthDate.month &&
+          r['mode'] == '生理期';
+    }).toList();
+
+    if (prevMonthRecords.isEmpty) return [];
+
+    // 找到上个月第一个记录日期
+    prevMonthRecords.sort(
+      (a, b) => (a['date'] ?? '').compareTo(b['date'] ?? ''),
+    );
+    final firstRecordDate = DateTime.parse(prevMonthRecords.first['date']!);
+
+    // 预测本月（focusedDay）的开始日期
+    // 简单逻辑：上个月记录日期 + 1个月
+    final predictedStart = DateTime(
+      firstRecordDate.year,
+      firstRecordDate.month + 1,
+      firstRecordDate.day,
+    );
+
+    // 生成预测的6天
+    final predictedDates = <DateTime>[];
+    for (int i = 0; i < 6; i++) {
+      predictedDates.add(predictedStart.add(Duration(days: i)));
+    }
+    return predictedDates;
+  }
+
+  // 判断日期是否为预测日期
+  bool _isPredictedDate(DateTime day) {
+    if (!_isPeriodMode) return false;
+    final predictedDates = _getPredictedPeriodDates();
+    return predictedDates.any((d) => isSameDay(d, day));
+  }
+
+  // 添加生理期记录 (自动填充6天)
+  Future<void> _addPeriodRecord() async {
+    final now = DateTime.now();
+    final startDate = _selectedDay;
+
+    setState(() {
+      for (int i = 0; i < 6; i++) {
+        final date = startDate.add(Duration(days: i));
+        final dateStr = date.toIso8601String().substring(0, 10);
+
+        // 检查该日期是否已有生理期记录，避免重复
+        final hasRecord = records.any(
+          (r) => r['date'] == dateStr && r['mode'] == '生理期',
+        );
+
+        if (!hasRecord) {
+          final currentTime =
+              '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+          final formattedDateTime =
+              '${date.year}/${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')} $currentTime';
+
+          records.insert(0, {
+            'title': '${date.month}月${date.day}日 $currentTime',
+            'note': i == 0 ? '生理期开始' : '生理期自动填充', // 第一天标记一下，其他自动填充
+            'date': dateStr,
+            'time': currentTime,
+            'datetime': formattedDateTime,
+            'mode': '生理期',
+          });
+        }
+      }
+    });
+    await _saveRecords();
+  }
+
+  // 删除选中日期的生理期记录
+  Future<void> _removeTodayPeriodRecords() async {
+    final dateStr = _selectedDay.toIso8601String().substring(0, 10);
+    setState(() {
+      records.removeWhere((r) => r['date'] == dateStr && r['mode'] == '生理期');
+    });
+    await _saveRecords();
+  }
+
+  // 构建生理期 Switch 按钮
+  Widget _buildPeriodSwitchButton() {
+    final hasRecord = _hasTodayPeriodRecord;
+    final leftText = hasRecord ? '走了' : '来了';
+    final rightText = hasRecord ? '没走' : '没来';
+    final leftSelected = hasRecord; // 已有记录时左边选中("走了")，无记录时也是左边可点击("来了")
+
+    return Container(
+      width: double.infinity,
+      height: 56,
+      decoration: BoxDecoration(
+        color: const Color(0xFFFCE4EC),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: const Color(0xFFE581A3), width: 1),
+      ),
+      child: Row(
+        children: [
+          // 左边按钮
+          Expanded(
+            child: GestureDetector(
+              onTap: () async {
+                if (!hasRecord) {
+                  // 点击"来了"添加记录
+                  await _addPeriodRecord();
+                } else {
+                  // 点击"走了"删除记录
+                  await _removeTodayPeriodRecords();
+                }
+              },
+              child: Container(
+                height: double.infinity,
+                margin: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: leftSelected
+                      ? const Color(0xFFE581A3)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(26),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  leftText,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: leftSelected
+                        ? Colors.white
+                        : const Color(0xFFE581A3),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // 右边按钮
+          Expanded(
+            child: GestureDetector(
+              onTap: () async {
+                if (hasRecord) {
+                  // 点击"没走"不做操作（保持记录）
+                } else {
+                  // 点击"没来"不做操作（没有记录）
+                }
+              },
+              child: Container(
+                height: double.infinity,
+                margin: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: !leftSelected
+                      ? const Color(0xFFE581A3)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(26),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  rightText,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: !leftSelected
+                        ? Colors.white
+                        : const Color(0xFFE581A3),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // 编辑记录弹窗
@@ -823,7 +1023,7 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                           child: TableCalendar(
                             locale: 'zh_CN',
                             firstDay: DateTime.utc(2010, 10, 16),
-                            lastDay: _lastDayOfMonth,
+                            lastDay: DateTime.utc(2030, 12, 31),
                             focusedDay: _focusedDay,
                             selectedDayPredicate: (day) =>
                                 isSameDay(_selectedDay, day),
@@ -979,6 +1179,28 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                                   ),
                                 );
                               },
+                              // 默认日期样式（用于显示预测日期的浅粉色背景）
+                              defaultBuilder: (context, day, focusedDay) {
+                                // 如果是预测日期且在生理期模式，显示浅粉色背景
+                                if (_isPeriodMode && _isPredictedDate(day)) {
+                                  return Container(
+                                    margin: const EdgeInsets.all(6),
+                                    decoration: const BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Color(0xFFFCE4EC), // 浅粉色
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      '${day.day}',
+                                      style: const TextStyle(
+                                        color: Color(0xFFE581A3),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  );
+                                }
+                                return null;
+                              },
                             ),
                           ),
                         ),
@@ -986,152 +1208,156 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                         const SizedBox(height: 24),
 
                         // 记录列表标题
-                        Row(
-                          children: [
-                            Text(
-                              '${modes[selectedModeIndex]}记录',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
+                        if (!_isPeriodMode) ...[
+                          Row(
+                            children: [
+                              Text(
+                                '${modes[selectedModeIndex]}记录',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
 
-                        // 记录列表
-                        if (todayRecords.isEmpty)
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(24),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.01),
-                                  blurRadius: 5,
-                                ),
-                              ],
-                            ),
-                            child: const Center(
-                              child: Text(
-                                '今天暂未打卡',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 14,
+                          // 记录列表
+                          if (todayRecords.isEmpty)
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(24),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.01),
+                                    blurRadius: 5,
+                                  ),
+                                ],
+                              ),
+                              child: const Center(
+                                child: Text(
+                                  '今天暂未打卡',
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 14,
+                                  ),
                                 ),
                               ),
-                            ),
-                          )
-                        else
-                          Column(
-                            children: List.generate(todayRecords.length, (
-                              index,
-                            ) {
-                              final record = todayRecords[index];
-                              final realIndex = records.indexOf(record);
-                              return Container(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 16,
-                                ),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(16),
-                                  color: Colors.white,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.03),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(8),
-                                          decoration: BoxDecoration(
-                                            color: const Color(
-                                              0xFFE581A3,
-                                            ).withOpacity(0.1),
-                                            shape: BoxShape.circle,
+                            )
+                          else
+                            Column(
+                              children: List.generate(todayRecords.length, (
+                                index,
+                              ) {
+                                final record = todayRecords[index];
+                                final realIndex = records.indexOf(record);
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 16,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    color: Colors.white,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.03),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: const Color(
+                                                0xFFE581A3,
+                                              ).withOpacity(0.1),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(
+                                              Icons.check,
+                                              size: 16,
+                                              color: Color(0xFFE581A3),
+                                            ),
                                           ),
-                                          child: const Icon(
-                                            Icons.check,
-                                            size: 16,
-                                            color: Color(0xFFE581A3),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                // 优先显示完整日期时间，兼容旧数据
-                                                record['datetime'] ??
-                                                    '${record['date']?.replaceAll('-', '/')} ${record['time'] ?? ''}',
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 15,
-                                                ),
-                                              ),
-                                              if ((record['note'] ?? '')
-                                                  .isNotEmpty)
-                                                Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                        top: 4,
-                                                      ),
-                                                  child: Text(
-                                                    record['note']!,
-                                                    style: const TextStyle(
-                                                      fontSize: 13,
-                                                      color: Colors.grey,
-                                                    ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  // 优先显示完整日期时间，兼容旧数据
+                                                  record['datetime'] ??
+                                                      '${record['date']?.replaceAll('-', '/')} ${record['time'] ?? ''}',
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 15,
                                                   ),
                                                 ),
+                                                if ((record['note'] ?? '')
+                                                    .isNotEmpty)
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                          top: 4,
+                                                        ),
+                                                    child: Text(
+                                                      record['note']!,
+                                                      style: const TextStyle(
+                                                        fontSize: 13,
+                                                        color: Colors.grey,
+                                                      ),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                          PopupMenuButton<String>(
+                                            onSelected: (v) {
+                                              if (v == 'edit')
+                                                _showEditRecordDialog(
+                                                  realIndex,
+                                                );
+                                              if (v == 'delete')
+                                                _deleteRecord(realIndex);
+                                            },
+                                            itemBuilder: (context) => [
+                                              const PopupMenuItem(
+                                                value: 'edit',
+                                                child: Text('编辑'),
+                                              ),
+                                              const PopupMenuItem(
+                                                value: 'delete',
+                                                child: Text('删除'),
+                                              ),
                                             ],
-                                          ),
-                                        ),
-                                        PopupMenuButton<String>(
-                                          onSelected: (v) {
-                                            if (v == 'edit')
-                                              _showEditRecordDialog(realIndex);
-                                            if (v == 'delete')
-                                              _deleteRecord(realIndex);
-                                          },
-                                          itemBuilder: (context) => [
-                                            const PopupMenuItem(
-                                              value: 'edit',
-                                              child: Text('编辑'),
+                                            child: const Icon(
+                                              Icons.more_horiz,
+                                              color: Colors.grey,
                                             ),
-                                            const PopupMenuItem(
-                                              value: 'delete',
-                                              child: Text('删除'),
-                                            ),
-                                          ],
-                                          child: const Icon(
-                                            Icons.more_horiz,
-                                            color: Colors.grey,
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }),
-                          ),
-
-                        const SizedBox(height: 100), // 底部留白给按钮
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                            ),
+                          const SizedBox(height: 100), // 底部留白给按钮
+                        ],
                       ],
                     ),
                   ),
@@ -1150,25 +1376,27 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
           bottom: 30,
           top: 10,
         ),
-        child: SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color.fromARGB(255, 234, 145, 175), // 粉色
-              foregroundColor: const Color(0xFFFFFFFF),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30),
+        child: _isPeriodMode
+            ? _buildPeriodSwitchButton()
+            : SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color.fromARGB(255, 234, 145, 175),
+                    foregroundColor: const Color(0xFFFFFFFF),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                  onPressed: _showAddRecordDialog,
+                  child: const Text(
+                    '打卡',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
               ),
-            ),
-            onPressed: _showAddRecordDialog,
-            child: const Text(
-              '打卡',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ),
       ),
     );
   }

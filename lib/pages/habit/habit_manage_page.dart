@@ -163,6 +163,16 @@ class _HabitManagePageState extends State<HabitManagePage> {
     }
   }
 
+  Future<void> _navigateToEditHabit(HabitConfig habit, int index) async {
+    final result = await Navigator.of(context).push<HabitConfig>(
+      MaterialPageRoute(builder: (context) => AddHabitPage(habitToEdit: habit)),
+    );
+    if (result != null) {
+      await HabitConfigManager.updateHabit(result);
+      _loadHabits();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -236,98 +246,258 @@ class _HabitManagePageState extends State<HabitManagePage> {
   }
 
   Widget _buildHabitItem(HabitConfig habit, int index) {
-    return ClipRRect(
+    return _SwipeableHabitItem(
       key: ValueKey(habit.id),
-      borderRadius: BorderRadius.circular(12),
-      child: Dismissible(
-        key: Key('dismissible_${habit.id}'),
-        direction: DismissDirection.endToStart,
-        confirmDismiss: (direction) async {
-          return await _showDeleteConfirmDialog(habit);
-        },
-        onDismissed: (direction) {
+      habit: habit,
+      index: index,
+      onEdit: () => _navigateToEditHabit(habit, index),
+      onDelete: () async {
+        final confirmed = await _showDeleteConfirmDialog(habit);
+        if (confirmed == true) {
           _deleteHabit(index);
-        },
-        background: Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          decoration: BoxDecoration(
-            color: Colors.red,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          alignment: Alignment.centerRight,
-          padding: const EdgeInsets.only(right: 30),
-          child: const Text(
-            '删除',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withAlpha(5),
-                blurRadius: 5,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              // 图标
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: habit.color.withAlpha(25),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Center(
-                  child: Text(
-                    habit.icon,
-                    style: TextStyle(
-                      fontSize: habit.icon.length == 1 ? 20 : 24,
-                      color: habit.color,
-                      fontWeight: FontWeight.bold,
+        }
+      },
+      onToggle: (value) => _toggleHabit(index, value),
+    );
+  }
+}
+
+/// 可左滑的习惯项组件
+class _SwipeableHabitItem extends StatefulWidget {
+  final HabitConfig habit;
+  final int index;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final ValueChanged<bool> onToggle;
+
+  const _SwipeableHabitItem({
+    super.key,
+    required this.habit,
+    required this.index,
+    required this.onEdit,
+    required this.onDelete,
+    required this.onToggle,
+  });
+
+  @override
+  State<_SwipeableHabitItem> createState() => _SwipeableHabitItemState();
+}
+
+class _SwipeableHabitItemState extends State<_SwipeableHabitItem>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<Offset> _slideAnimation;
+  double _dragExtent = 0;
+  static const double _actionWidth = 140; // 两个操作按钮的总宽度
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: Offset.zero,
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _handleDragUpdate(DragUpdateDetails details) {
+    setState(() {
+      _dragExtent += details.primaryDelta ?? 0;
+      _dragExtent = _dragExtent.clamp(-_actionWidth, 0);
+    });
+  }
+
+  void _handleDragEnd(DragEndDetails details) {
+    if (_dragExtent < -_actionWidth / 2) {
+      // 展开操作按钮
+      _animateTo(-_actionWidth);
+    } else {
+      // 收起
+      _animateTo(0);
+    }
+  }
+
+  void _animateTo(double target) {
+    _slideAnimation = Tween<Offset>(
+      begin: Offset(_dragExtent / MediaQuery.of(context).size.width, 0),
+      end: Offset(target / MediaQuery.of(context).size.width, 0),
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+    _controller.forward(from: 0).then((_) {
+      setState(() {
+        _dragExtent = target;
+      });
+    });
+  }
+
+  void _closeActions() {
+    _animateTo(0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final habit = widget.habit;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Stack(
+          children: [
+            // 背景操作按钮
+            Positioned.fill(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  // 编辑按钮
+                  GestureDetector(
+                    onTap: () {
+                      _closeActions();
+                      widget.onEdit();
+                    },
+                    child: Container(
+                      width: 70,
+                      color: const Color(0xFF4A90E2),
+                      alignment: Alignment.center,
+                      child: const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.edit, color: Colors.white, size: 20),
+                          SizedBox(height: 4),
+                          Text(
+                            '编辑',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
+                  // 删除按钮
+                  GestureDetector(
+                    onTap: () {
+                      _closeActions();
+                      widget.onDelete();
+                    },
+                    child: Container(
+                      width: 70,
+                      color: Colors.red,
+                      alignment: Alignment.center,
+                      child: const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.delete, color: Colors.white, size: 20),
+                          SizedBox(height: 4),
+                          Text(
+                            '删除',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              // 习惯名称
-              Expanded(
-                child: Text(
-                  habit.name,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black87,
+            ),
+            // 前景内容
+            GestureDetector(
+              onHorizontalDragUpdate: _handleDragUpdate,
+              onHorizontalDragEnd: _handleDragEnd,
+              child: AnimatedBuilder(
+                animation: _controller,
+                builder: (context, child) {
+                  final offset = _controller.isAnimating
+                      ? _slideAnimation.value.dx *
+                            MediaQuery.of(context).size.width
+                      : _dragExtent;
+                  return Transform.translate(
+                    offset: Offset(offset, 0),
+                    child: child,
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(5),
+                        blurRadius: 5,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      // 图标
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: habit.color.withAlpha(25),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Center(
+                          child: HabitConfigManager.getIconWidget(
+                            habit.icon,
+                            size: habit.icon.length == 1
+                                ? 20
+                                : 24, // Keep heuristic or simplify? getIconWidget has default 24
+                            color: habit.color,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // 习惯名称
+                      Expanded(
+                        child: Text(
+                          habit.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                      // 开关
+                      Switch(
+                        value: habit.isEnabled,
+                        onChanged: widget.onToggle,
+                        activeColor: const Color(0xFFE581A3),
+                      ),
+                      // 拖动手柄
+                      ReorderableDragStartListener(
+                        index: widget.index,
+                        child: const Padding(
+                          padding: EdgeInsets.only(left: 8),
+                          child: Icon(Icons.menu, color: Colors.grey, size: 24),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              // 开关
-              Switch(
-                value: habit.isEnabled,
-                onChanged: (value) => _toggleHabit(index, value),
-                activeColor: const Color(0xFFE581A3),
-              ),
-              // 拖动手柄
-              ReorderableDragStartListener(
-                index: index,
-                child: const Padding(
-                  padding: EdgeInsets.only(left: 8),
-                  child: Icon(Icons.menu, color: Colors.grey, size: 24),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
