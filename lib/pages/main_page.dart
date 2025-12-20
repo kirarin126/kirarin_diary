@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:first/pages/habit/habit_tracker_page.dart';
 import 'package:first/pages/my_page.dart';
 import 'package:first/pages/dashboard_page.dart';
 
@@ -22,22 +21,22 @@ class _MainPageState extends State<MainPage>
   Widget build(BuildContext context) {
     super.build(context); //
     return DefaultTabController(
-      length: 3,
+      length: 2,
       child: Scaffold(
         drawer: Drawer(
           child: ListView(
-            padding: EdgeInsets.all(0),
+            padding: const EdgeInsets.all(0),
             children: [
               UserAccountsDrawerHeader(
-                accountName: Text('果果'),
-                accountEmail: Text('个性签名'),
-                currentAccountPicture: CircleAvatar(
+                accountName: const Text('果果'),
+                accountEmail: const Text('个性签名'),
+                currentAccountPicture: const CircleAvatar(
                   backgroundImage: NetworkImage(
                     'https://cdn.pixabay.com/photo/2025/08/23/07/17/rose-9791425_1280.jpg',
                   ),
                 ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE581A3),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE581A3),
                   image: DecorationImage(
                     image: NetworkImage(
                       'https://cdn.pixabay.com/photo/2025/09/04/11/33/coast-9815439_1280.jpg',
@@ -47,30 +46,30 @@ class _MainPageState extends State<MainPage>
                 ),
               ),
               ListTile(
-                leading: Icon(Icons.home),
-                title: Text('首页'),
+                leading: const Icon(Icons.home),
+                title: const Text('首页'),
                 onTap: () {
                   Navigator.pop(context);
                 },
               ),
               ListTile(
-                leading: Icon(Icons.settings),
-                title: Text('设置'),
+                leading: const Icon(Icons.settings),
+                title: const Text('设置'),
                 onTap: () {
                   Navigator.pop(context);
                 },
               ),
               ListTile(
-                leading: Icon(Icons.info),
-                title: Text('关于App'),
+                leading: const Icon(Icons.info),
+                title: const Text('关于App'),
                 onTap: () {
                   Navigator.pop(context);
                 },
               ),
-              Divider(),
+              const Divider(),
               ListTile(
-                leading: Icon(Icons.logout),
-                title: Text('退出登录'),
+                leading: const Icon(Icons.logout),
+                title: const Text('退出登录'),
                 onTap: () {
                   Navigator.pop(context);
                 },
@@ -83,29 +82,13 @@ class _MainPageState extends State<MainPage>
           index: _currentIndex,
           children: [
             DashboardPage(name: '果果'),
-            HabitTrackerPage(name: '测试'),
             MyPage(),
           ],
         ),
 
-        // floatingActionButton: FloatingActionButton(
-        //   // 悬浮按钮
-        //   onPressed: () async {
-        //     await _dashboardKey.currentState?.getData();
-        //   },
-        //   backgroundColor: const Color(0xFFE581A3),
-        //   shape: RoundedRectangleBorder(
-        //     borderRadius: BorderRadius.circular(30),
-        //   ),
-        //   child: const Icon(Icons.add, color: Colors.white),
-        // ),
         bottomNavigationBar: BottomNavigationBar(
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.home), label: '首页'),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.calendar_today),
-              label: '习惯',
-            ),
             BottomNavigationBarItem(icon: Icon(Icons.person), label: '我的'),
           ],
           type: BottomNavigationBarType.fixed,

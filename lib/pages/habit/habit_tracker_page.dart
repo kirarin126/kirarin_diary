@@ -2,18 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'habit_config.dart';
+import 'habit_manage_page.dart';
 
 /// 习惯追踪页面 - 用于记录和追踪日常健康习惯
 class HabitTrackerPage extends StatefulWidget {
   final String name;
-  const HabitTrackerPage({super.key, required this.name});
+  final int initialModeIndex;
+  const HabitTrackerPage({
+    super.key,
+    required this.name,
+    this.initialModeIndex = 0,
+  });
 
   @override
   State<HabitTrackerPage> createState() => _HabitTrackerPageState();
 }
 
 class _HabitTrackerPageState extends State<HabitTrackerPage> {
-  final List<String> modes = ['洗头', '便便', '喝奶茶'];
+  List<String> modes = [];
   int selectedModeIndex = 0;
   late DateTime _focusedDay;
   late DateTime _selectedDay;
@@ -28,18 +35,34 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
     _today = DateTime.now();
     _focusedDay = _today;
     _selectedDay = _today;
-    _loadRecords();
+    _loadHabitsAndRecords();
   }
 
-  // 加载本地记录
-  Future<void> _loadRecords() async {
+  // 加载习惯配置和记录
+  Future<void> _loadHabitsAndRecords() async {
+    // 加载启用的习惯
+    final configs = await HabitConfigManager.getEnabledHabits();
+    final modesList = configs.map((c) => c.name).toList();
+
+    // 加载记录
     final prefs = await SharedPreferences.getInstance();
     final data = prefs.getString(_recordsKey);
+    List<Map<String, String>> loadedRecords = [];
     if (data != null) {
       final List<dynamic> list = jsonDecode(data);
-      records = list.map((e) => Map<String, String>.from(e)).toList();
-      setState(() {});
+      loadedRecords = list.map((e) => Map<String, String>.from(e)).toList();
     }
+
+    setState(() {
+      modes = modesList;
+      records = loadedRecords;
+      // 确保 initialModeIndex 在有效范围内
+      if (widget.initialModeIndex < modes.length) {
+        selectedModeIndex = widget.initialModeIndex;
+      } else {
+        selectedModeIndex = 0;
+      }
+    });
   }
 
   // 保存记录到本地
@@ -73,129 +96,295 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
     final currentMode = modes[selectedModeIndex];
     String note = records[index]['note'] ?? '';
     final controller = TextEditingController(text: note);
-    final List<String> timeOptions = List.generate(24 * 2, (i) {
-      final h = (i ~/ 2).toString().padLeft(2, '0');
-      final m = (i % 2 == 0) ? '00' : '30';
-      return '$h:$m';
-    });
-    String selectedTime =
-        records[index]['time'] ??
-        timeOptions[DateTime.now().hour * 2 +
-            (DateTime.now().minute >= 30 ? 1 : 0)];
+    final recordTime = records[index]['time'] ?? '';
 
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-            top: 24,
+        return Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFFFEEF3), Colors.white],
+              stops: [0.0, 0.3],
+            ),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '当前模式：$currentMode',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFE581A3),
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+              top: 16,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 顶部拖动指示器
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                '编辑备注',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  const Text('时间点：', style: TextStyle(fontSize: 15)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: selectedTime,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
+                const SizedBox(height: 20),
+
+                // 标题区域
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE581A3).withAlpha(25),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.edit_outlined,
+                        color: Color(0xFFE581A3),
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '编辑记录',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '当前模式：$currentMode',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFFE581A3),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // 打卡时间显示卡片（只读）
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(8),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0E4E8),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.access_time,
+                          color: Color(0xFFE581A3),
+                          size: 20,
                         ),
                       ),
-                      items: timeOptions
-                          .map(
-                            (t) => DropdownMenuItem(value: t, child: Text(t)),
-                          )
-                          .toList(),
-                      onChanged: (v) {
-                        if (v != null) selectedTime = v;
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                autofocus: true,
-                maxLines: 3,
-                controller: controller,
-                decoration: const InputDecoration(
-                  hintText: '请输入备注',
-                  border: OutlineInputBorder(),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFE581A3)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFE581A3), width: 2),
-                  ),
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
+                      const SizedBox(width: 12),
+                      const Text(
+                        '打卡时间',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0E4E8),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          recordTime,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFE581A3),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                onChanged: (value) => note = value,
-              ),
-              const SizedBox(height: 18),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('取消'),
+                const SizedBox(height: 16),
+
+                // 备注输入卡片
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(8),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFE581A3),
-                      foregroundColor: Colors.white,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF0E4E8),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.edit_note,
+                              color: Color(0xFFE581A3),
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Text(
+                            '备注',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: controller,
+                        maxLines: 3,
+                        style: const TextStyle(fontSize: 15),
+                        decoration: InputDecoration(
+                          hintText: '记录一下这次的感受吧~',
+                          hintStyle: TextStyle(
+                            color: Colors.grey.shade400,
+                            fontSize: 14,
+                          ),
+                          filled: true,
+                          fillColor: const Color(0xFFFAFAFA),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE581A3),
+                              width: 1.5,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.all(14),
+                        ),
+                        onChanged: (value) => note = value,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // 底部按钮
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(25),
+                            side: BorderSide(color: Colors.grey.shade300),
+                          ),
+                        ),
+                        child: const Text(
+                          '取消',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
                     ),
-                    onPressed: () async {
-                      if (note.trim().isNotEmpty) {
-                        setState(() {
-                          records[index]['note'] = note.trim();
-                          records[index]['time'] = selectedTime;
-                          final date = _selectedDay;
-                          records[index]['title'] =
-                              '${date.month}月${date.day}日$selectedTime';
-                          records[index]['mode'] = currentMode;
-                        });
-                        await _saveRecords();
-                        if (!mounted) return;
-                        Navigator.of(context).pop();
-                      }
-                    },
-                    child: const Text('保存'),
-                  ),
-                ],
-              ),
-            ],
+                    const SizedBox(width: 16),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          setState(() {
+                            records[index]['note'] = note.trim();
+                          });
+                          await _saveRecords();
+                          if (!mounted) return;
+                          Navigator.of(context).pop();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE581A3),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.save_outlined, size: 20),
+                            SizedBox(width: 8),
+                            Text(
+                              '保存修改',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -215,132 +404,255 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
     String note = '';
     final controller = TextEditingController();
     final currentMode = modes[selectedModeIndex];
-    final List<String> timeOptions = List.generate(24 * 2, (i) {
-      final h = (i ~/ 2).toString().padLeft(2, '0');
-      final m = (i % 2 == 0) ? '00' : '30';
-      return '$h:$m';
-    });
-    String selectedTime =
-        timeOptions[DateTime.now().hour * 2 +
-            (DateTime.now().minute >= 30 ? 1 : 0)];
 
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-            top: 24,
+        return Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFFFEEF3), Colors.white],
+              stops: [0.0, 0.3],
+            ),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '当前模式：$currentMode',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFE581A3),
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+              top: 16,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 顶部拖动指示器
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                '添加记录',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  const Text('时间：', style: TextStyle(fontSize: 15)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: selectedTime,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
+                const SizedBox(height: 20),
+
+                // 标题区域
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE581A3).withAlpha(25),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.add_circle_outline,
+                        color: Color(0xFFE581A3),
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '添加记录',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '当前模式：$currentMode',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFFE581A3),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // 备注输入卡片
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(8),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF0E4E8),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.edit_note,
+                              color: Color(0xFFE581A3),
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Text(
+                            '备注',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const Text(
+                            '（选填）',
+                            style: TextStyle(fontSize: 13, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: controller,
+                        maxLines: 3,
+                        style: const TextStyle(fontSize: 15),
+                        decoration: InputDecoration(
+                          hintText: '记录一下这次的感受吧~',
+                          hintStyle: TextStyle(
+                            color: Colors.grey.shade400,
+                            fontSize: 14,
+                          ),
+                          filled: true,
+                          fillColor: const Color(0xFFFAFAFA),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE581A3),
+                              width: 1.5,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.all(14),
+                        ),
+                        onChanged: (value) => note = value,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // 底部按钮
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(25),
+                            side: BorderSide(color: Colors.grey.shade300),
+                          ),
+                        ),
+                        child: const Text(
+                          '取消',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
-                      items: timeOptions
-                          .map(
-                            (t) => DropdownMenuItem(value: t, child: Text(t)),
-                          )
-                          .toList(),
-                      onChanged: (v) {
-                        if (v != null) selectedTime = v;
-                      },
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                autofocus: true,
-                maxLines: 3,
-                controller: controller,
-                decoration: const InputDecoration(
-                  hintText: '请输入备注',
-                  border: OutlineInputBorder(),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFE581A3)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFE581A3), width: 2),
-                  ),
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          // 获取当前时间作为打卡时间（包含秒数）
+                          final now = DateTime.now();
+                          final currentTime =
+                              '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+                          final date = _selectedDay;
+                          // 格式化日期时间：2025/12/20 09:00:24
+                          final formattedDateTime =
+                              '${date.year}/${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')} $currentTime';
+
+                          setState(() {
+                            final title =
+                                '${date.month}月${date.day}日 $currentTime';
+                            records.insert(0, {
+                              'title': title,
+                              'note': note.trim(),
+                              'date': date.toIso8601String().substring(0, 10),
+                              'time': currentTime,
+                              'datetime': formattedDateTime,
+                              'mode': currentMode,
+                            });
+                          });
+                          await _saveRecords();
+                          if (!mounted) return;
+                          Navigator.of(context).pop();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE581A3),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.check_circle_outline, size: 20),
+                            SizedBox(width: 8),
+                            Text(
+                              '完成打卡',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                onChanged: (value) => note = value,
-              ),
-              const SizedBox(height: 18),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('取消'),
-                  ),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFE581A3),
-                      foregroundColor: Colors.white,
-                    ),
-                    onPressed: () async {
-                      setState(() {
-                        final date = _selectedDay;
-                        final title = '${date.month}月${date.day}日$selectedTime';
-                        records.insert(0, {
-                          'title': title,
-                          'note': note.trim(), // 允许为空
-                          'date': date.toIso8601String().substring(
-                            0,
-                            10,
-                          ), // yyyy-MM-dd
-                          'time': selectedTime,
-                          'mode': currentMode,
-                        });
-                      });
-                      await _saveRecords();
-                      if (!mounted) return;
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text('确定'),
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -349,6 +661,25 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
 
   @override
   Widget build(BuildContext context) {
+    // 如果习惯列表还未加载，显示加载指示器
+    if (modes.isEmpty) {
+      return Scaffold(
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFFFEEF3), Color(0xFFF9F9F9)],
+              stops: [0.0, 0.4],
+            ),
+          ),
+          child: const Center(
+            child: CircularProgressIndicator(color: Color(0xFFE581A3)),
+          ),
+        ),
+      );
+    }
+
     String selectedDateStr = _selectedDay.toIso8601String().substring(0, 10);
     String currentMode = modes[selectedModeIndex];
     List<Map<String, String>> todayRecords = records
@@ -395,7 +726,15 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                       ),
                     ),
                     TextButton(
-                      onPressed: () {},
+                      onPressed: () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const HabitManagePage(),
+                          ),
+                        );
+                        // 返回后刷新习惯列表
+                        _loadHabitsAndRecords();
+                      },
                       child: const Text(
                         '管理',
                         style: TextStyle(color: Colors.grey),
@@ -736,10 +1075,12 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                                                 CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                record['time'] ?? '',
+                                                // 优先显示完整日期时间，兼容旧数据
+                                                record['datetime'] ??
+                                                    '${record['date']?.replaceAll('-', '/')} ${record['time'] ?? ''}',
                                                 style: const TextStyle(
                                                   fontWeight: FontWeight.bold,
-                                                  fontSize: 16,
+                                                  fontSize: 15,
                                                 ),
                                               ),
                                               if ((record['note'] ?? '')
