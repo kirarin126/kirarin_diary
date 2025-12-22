@@ -92,8 +92,8 @@ class HabitSummarySectionState extends State<HabitSummarySection> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: const Color(0xFFFAFAFA),
         borderRadius: BorderRadius.circular(20),
@@ -213,14 +213,17 @@ class HabitSummarySectionState extends State<HabitSummarySection> {
                           color: Colors.black87,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '本周完成${weeklyCompletion['completed']}/${weeklyCompletion['total']}天',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey.shade600,
+                      // 生理期模式不显示本周完成信息
+                      if (mode != '生理期') ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          '本周完成${weeklyCompletion['completed']}/${weeklyCompletion['total']}天',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade600,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -579,12 +582,42 @@ class HabitSummarySectionState extends State<HabitSummarySection> {
     );
   }
 
+  // 判断是否在"走了"（经期结束）后的5天内
+  bool _isWithin5DaysAfterPeriodEnd() {
+    final periodRecords = records.where((r) => r['mode'] == '生理期').toList();
+    if (periodRecords.isEmpty) return false;
+
+    periodRecords.sort((a, b) => (b['date'] ?? '').compareTo(a['date'] ?? ''));
+
+    String? endDateStr;
+    for (var r in periodRecords) {
+      if (r['note']?.contains('生理期结束') == true) {
+        endDateStr = r['date'];
+        break;
+      }
+    }
+
+    if (endDateStr == null) return false;
+
+    final endDate = DateTime.tryParse(endDateStr);
+    if (endDate == null) return false;
+
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    final daysSinceEnd = todayDate.difference(endDate).inDays;
+
+    return daysSinceEnd >= 0 && daysSinceEnd <= 5;
+  }
+
   // 构建生理期 Switch 按钮
   Widget _buildPeriodSwitch(String mode) {
     final hasRecord = _getTodayCount(mode) > 0;
-    final leftText = hasRecord ? '走了' : '来了';
-    final rightText = hasRecord ? '没走' : '没来';
-    final leftSelected = hasRecord;
+    final isIn5DayRecovery = _isWithin5DaysAfterPeriodEnd();
+
+    // 有记录或在5天恢复期内：显示"走了/没走"
+    final showEndedButtons = hasRecord || isIn5DayRecovery;
+    final leftText = showEndedButtons ? '走了' : '来了';
+    final rightText = showEndedButtons ? '没走' : '没来';
 
     return Container(
       width: 100,
@@ -596,66 +629,54 @@ class HabitSummarySectionState extends State<HabitSummarySection> {
       ),
       child: Row(
         children: [
-          // 左边按钮
+          // 左边按钮（操作按钮）
           Expanded(
             child: GestureDetector(
               onTap: () async {
-                if (!hasRecord) {
-                  // 点击"来了"添加记录
-                  await _addPeriodRecord();
+                if (showEndedButtons) {
+                  if (hasRecord) {
+                    await _markPeriodEnded();
+                  }
+                  // 在5天恢复期内点击"走了"不做操作
                 } else {
-                  // 点击"走了"删除记录
-                  await _removeTodayPeriodRecords();
+                  await _addPeriodRecord();
                 }
               },
               child: Container(
                 height: double.infinity,
                 margin: const EdgeInsets.all(2),
                 decoration: BoxDecoration(
-                  color: leftSelected
-                      ? const Color(0xFFE581A3)
-                      : Colors.transparent,
+                  color: Colors.transparent,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 alignment: Alignment.center,
                 child: Text(
                   leftText,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: leftSelected
-                        ? Colors.white
-                        : const Color(0xFFE581A3),
+                    color: Color(0xFFE581A3),
                   ),
                 ),
               ),
             ),
           ),
-          // 右边按钮
+          // 右边按钮（状态显示）
           Expanded(
-            child: GestureDetector(
-              onTap: () {
-                // 右边按钮不执行操作
-              },
-              child: Container(
-                height: double.infinity,
-                margin: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  color: !leftSelected
-                      ? const Color(0xFFE581A3)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  rightText,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: !leftSelected
-                        ? Colors.white
-                        : const Color(0xFFE581A3),
-                  ),
+            child: Container(
+              height: double.infinity,
+              margin: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE581A3),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                rightText,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
               ),
             ),
@@ -665,7 +686,7 @@ class HabitSummarySectionState extends State<HabitSummarySection> {
     );
   }
 
-  // 添加生理期记录 (自动填充接下来5天)
+  // 添加生理期记录 (自动填充6天)
   Future<void> _addPeriodRecord() async {
     final now = DateTime.now();
     // 从今天开始
@@ -712,6 +733,47 @@ class HabitSummarySectionState extends State<HabitSummarySection> {
     });
 
     // 保存记录
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_recordsKey, jsonEncode(records));
+  }
+
+  // 标记生理期提前结束
+  Future<void> _markPeriodEnded() async {
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+
+    // 找到本周期的开始日期
+    final periodRecords = records.where((r) => r['mode'] == '生理期').toList();
+    periodRecords.sort((a, b) => (b['date'] ?? '').compareTo(a['date'] ?? ''));
+
+    // 找到当前周期的开始日期
+    String? currentCycleStart;
+    for (var r in periodRecords) {
+      if (r['note']?.contains('生理期开始') == true) {
+        currentCycleStart = r['date'];
+        break;
+      }
+    }
+
+    if (currentCycleStart == null) return;
+
+    setState(() {
+      // 删除今天之后的自动填充记录
+      records.removeWhere((r) {
+        if (r['mode'] != '生理期') return false;
+        final recordDate = r['date'] ?? '';
+        return recordDate.compareTo(today) > 0 &&
+            recordDate.compareTo(currentCycleStart!) >= 0;
+      });
+
+      // 更新今天的记录，标记为经期结束
+      final todayRecordIndex = records.indexWhere(
+        (r) => r['date'] == today && r['mode'] == '生理期',
+      );
+      if (todayRecordIndex >= 0) {
+        records[todayRecordIndex]['note'] = '生理期结束';
+      }
+    });
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_recordsKey, jsonEncode(records));
   }

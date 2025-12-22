@@ -101,52 +101,150 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
   }
 
   // 获取预测的生理期日期（浅粉色显示）
-  // 基于上个月第一天的记录，预测当月（focusedDay）的开始日期，周期为6天
+  // 基于最近一次记录 + 周期长度进行预测
+  // 支持查看未来任意月份的预测（当用户切换月份时）
   List<DateTime> _getPredictedPeriodDates() {
     final currentMode = modes.isNotEmpty && selectedModeIndex < modes.length
         ? modes[selectedModeIndex]
         : '';
     if (currentMode != '生理期') return [];
 
-    // 计算上一个月
-    // DateTime(year, month, day) handle month overflow/underflow automatically
-    // e.g. month 0 becomes December of previous year
-    final previousMonthDate = DateTime(
-      _focusedDay.year,
-      _focusedDay.month - 1,
-      1,
-    );
+    // 默认周期参数
+    const int defaultCycleLength = 28; // 默认周期28天
+    const int defaultPeriodLength = 6; // 默认经期6天
 
-    // 查找上个月是否有记录
-    final prevMonthRecords = records.where((r) {
-      final date = DateTime.tryParse(r['date'] ?? '');
-      return date != null &&
-          date.year == previousMonthDate.year &&
-          date.month == previousMonthDate.month &&
-          r['mode'] == '生理期';
-    }).toList();
+    // 获取所有生理期记录，按日期排序
+    final periodRecords = records.where((r) => r['mode'] == '生理期').toList();
+    if (periodRecords.isEmpty) return [];
 
-    if (prevMonthRecords.isEmpty) return [];
+    // 按日期排序，找到每个周期的开始日期
+    periodRecords.sort((a, b) => (a['date'] ?? '').compareTo(b['date'] ?? ''));
 
-    // 找到上个月第一个记录日期
-    prevMonthRecords.sort(
-      (a, b) => (a['date'] ?? '').compareTo(b['date'] ?? ''),
-    );
-    final firstRecordDate = DateTime.parse(prevMonthRecords.first['date']!);
-
-    // 预测本月（focusedDay）的开始日期
-    // 简单逻辑：上个月记录日期 + 1个月
-    final predictedStart = DateTime(
-      firstRecordDate.year,
-      firstRecordDate.month + 1,
-      firstRecordDate.day,
-    );
-
-    // 生成预测的6天
-    final predictedDates = <DateTime>[];
-    for (int i = 0; i < 6; i++) {
-      predictedDates.add(predictedStart.add(Duration(days: i)));
+    // 找到所有周期的开始日期（标记为"生理期开始"的记录）
+    final cycleStarts = <DateTime>[];
+    for (var r in periodRecords) {
+      if (r['note']?.contains('生理期开始') == true) {
+        final date = DateTime.tryParse(r['date'] ?? '');
+        if (date != null) {
+          cycleStarts.add(date);
+        }
+      }
     }
+
+    // 如果没有明确的开始标记，使用第一个记录日期
+    if (cycleStarts.isEmpty) {
+      final firstDate = DateTime.tryParse(periodRecords.first['date'] ?? '');
+      if (firstDate != null) {
+        cycleStarts.add(firstDate);
+      }
+    }
+
+    if (cycleStarts.isEmpty) return [];
+
+    // 获取最近一次周期开始日期
+    cycleStarts.sort((a, b) => b.compareTo(a)); // 降序，最新的在前
+    final lastCycleStart = cycleStarts.first;
+
+    // 计算平均周期长度（如果有多个周期记录）
+    int avgCycleLength = defaultCycleLength;
+    if (cycleStarts.length >= 2) {
+      final cycleLengths = <int>[];
+      for (int i = 0; i < cycleStarts.length - 1; i++) {
+        final length = cycleStarts[i].difference(cycleStarts[i + 1]).inDays;
+        // 排除异常值（21-45天内的周期才计入）
+        if (length >= 21 && length <= 45) {
+          cycleLengths.add(length);
+        }
+      }
+      if (cycleLengths.isNotEmpty) {
+        avgCycleLength =
+            (cycleLengths.reduce((a, b) => a + b) / cycleLengths.length)
+                .round();
+      }
+    }
+
+    // 获取当前查看月份的范围
+    final focusedMonth = DateTime(_focusedDay.year, _focusedDay.month, 1);
+    final nextMonth = DateTime(_focusedDay.year, _focusedDay.month + 1, 1);
+
+    // 计算从最后一次记录到当前查看月份需要多少个周期
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+
+    // 生成预测日期列表
+    final predictedDates = <DateTime>[];
+
+    // 从最后一次记录开始，向前推算多个周期，直到覆盖当前查看的月份
+    DateTime currentPrediction = lastCycleStart.add(
+      Duration(days: avgCycleLength),
+    );
+
+    // 预测未来最多12个周期（约1年）
+    for (int cycle = 0; cycle < 12; cycle++) {
+      // 检查这个预测周期是否已经有实际记录了
+      final hasActualRecord = cycleStarts.any((start) {
+        final diff = (start.difference(currentPrediction).inDays).abs();
+        return diff <= 7; // 7天内认为是同一个周期
+      });
+
+      if (!hasActualRecord) {
+        // 生成这个周期的预测天数
+        for (int day = 0; day < defaultPeriodLength; day++) {
+          final predictedDate = currentPrediction.add(Duration(days: day));
+
+          // 只添加当前查看月份内的预测
+          if (predictedDate.year == focusedMonth.year &&
+              predictedDate.month == focusedMonth.month) {
+            // 检查这个日期是否已经有实际记录
+            final dateStr = predictedDate.toIso8601String().substring(0, 10);
+            final hasRecord = periodRecords.any((r) => r['date'] == dateStr);
+            if (!hasRecord) {
+              predictedDates.add(predictedDate);
+            }
+          }
+        }
+      }
+
+      // 移动到下一个预测周期
+      currentPrediction = currentPrediction.add(Duration(days: avgCycleLength));
+
+      // 如果预测日期已经超过当前查看月份很多，停止计算
+      if (currentPrediction.isAfter(nextMonth.add(const Duration(days: 45)))) {
+        break;
+      }
+    }
+
+    // 滚动推迟逻辑：如果预测日已过但用户未记录，今天也显示预测
+    if (predictedDates.isEmpty &&
+        focusedMonth.year == todayDate.year &&
+        focusedMonth.month == todayDate.month) {
+      // 计算下一个预测日期
+      DateTime nextPrediction = lastCycleStart.add(
+        Duration(days: avgCycleLength),
+      );
+      while (nextPrediction.isBefore(todayDate)) {
+        nextPrediction = nextPrediction.add(Duration(days: avgCycleLength));
+      }
+
+      // 如果预测日已过但在合理范围内（15天内），从今天开始显示
+      final daysSincePrediction = todayDate
+          .difference(lastCycleStart.add(Duration(days: avgCycleLength)))
+          .inDays;
+
+      if (daysSincePrediction > 0 && daysSincePrediction <= 15) {
+        for (int day = 0; day < defaultPeriodLength; day++) {
+          final dateStr = todayDate
+              .add(Duration(days: day))
+              .toIso8601String()
+              .substring(0, 10);
+          final hasRecord = periodRecords.any((r) => r['date'] == dateStr);
+          if (!hasRecord) {
+            predictedDates.add(todayDate.add(Duration(days: day)));
+          }
+        }
+      }
+    }
+
     return predictedDates;
   }
 
@@ -157,38 +255,196 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
     return predictedDates.any((d) => isSameDay(d, day));
   }
 
-  // 添加生理期记录 (自动填充6天)
+  // 获取推迟天数（用于滚动推迟显示）
+  // 返回值：0=未推迟，>0=推迟天数，<0=还有几天到预测日
+  int _getDelayDays() {
+    if (!_isPeriodMode) return 0;
+
+    const int defaultCycleLength = 28;
+
+    // 获取所有周期开始日期
+    final periodRecords = records.where((r) => r['mode'] == '生理期').toList();
+    if (periodRecords.isEmpty) return 0;
+
+    final cycleStarts = <DateTime>[];
+    for (var r in periodRecords) {
+      if (r['note']?.contains('生理期开始') == true) {
+        final date = DateTime.tryParse(r['date'] ?? '');
+        if (date != null) cycleStarts.add(date);
+      }
+    }
+
+    if (cycleStarts.isEmpty) {
+      final firstDate = DateTime.tryParse(periodRecords.first['date'] ?? '');
+      if (firstDate != null) cycleStarts.add(firstDate);
+    }
+
+    if (cycleStarts.isEmpty) return 0;
+
+    cycleStarts.sort((a, b) => b.compareTo(a));
+    final lastCycleStart = cycleStarts.first;
+
+    // 计算平均周期
+    int avgCycleLength = defaultCycleLength;
+    if (cycleStarts.length >= 2) {
+      final cycleLengths = <int>[];
+      for (int i = 0; i < cycleStarts.length - 1; i++) {
+        final length = cycleStarts[i].difference(cycleStarts[i + 1]).inDays;
+        if (length >= 21 && length <= 45) cycleLengths.add(length);
+      }
+      if (cycleLengths.isNotEmpty) {
+        avgCycleLength =
+            (cycleLengths.reduce((a, b) => a + b) / cycleLengths.length)
+                .round();
+      }
+    }
+
+    final predictedStart = lastCycleStart.add(Duration(days: avgCycleLength));
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+
+    return todayDate.difference(predictedStart).inDays;
+  }
+
+  // 获取周期状态信息（用于显示提示）
+  String _getPeriodStatusText() {
+    if (!_isPeriodMode) return '';
+
+    final delayDays = _getDelayDays();
+
+    if (delayDays > 0) {
+      if (delayDays > 15) {
+        return '周期异常（推迟${delayDays}天）';
+      }
+      return '推迟${delayDays}天';
+    } else if (delayDays == 0) {
+      return '预计今天';
+    } else {
+      return '距下次${-delayDays}天';
+    }
+  }
+
+  // 添加生理期记录
+  // 支持选择任意日期作为开始日期
+  // 如果已有记录，会进行合并处理
   Future<void> _addPeriodRecord() async {
     final now = DateTime.now();
     final startDate = _selectedDay;
+    final today = DateTime(now.year, now.month, now.day);
+
+    // 计算应该填充到哪一天（不超过今天，最多6天）
+    final endDate = startDate.add(const Duration(days: 5)); // 第6天
+    final actualEndDate = endDate.isAfter(today) ? today : endDate;
+
+    // 查找当前周期是否已有"生理期开始"记录
+    final periodRecords = records.where((r) => r['mode'] == '生理期').toList();
+    periodRecords.sort((a, b) => (b['date'] ?? '').compareTo(a['date'] ?? ''));
+
+    String? existingCycleStart;
+    for (var r in periodRecords) {
+      if (r['note']?.contains('生理期开始') == true) {
+        existingCycleStart = r['date'];
+        break;
+      }
+    }
 
     setState(() {
-      for (int i = 0; i < 6; i++) {
-        final date = startDate.add(Duration(days: i));
-        final dateStr = date.toIso8601String().substring(0, 10);
+      // 如果已有开始记录，需要判断是修改还是新增
+      if (existingCycleStart != null) {
+        final existingStartDate = DateTime.tryParse(existingCycleStart);
 
-        // 检查该日期是否已有生理期记录，避免重复
-        final hasRecord = records.any(
+        if (existingStartDate != null) {
+          final daysDiff = existingStartDate.difference(startDate).inDays.abs();
+
+          if (daysDiff <= 10) {
+            // 10天内认为是同一个周期，需要调整开始日期
+            // 删除旧的"生理期开始"标记
+            final oldStartIndex = records.indexWhere(
+              (r) => r['date'] == existingCycleStart && r['mode'] == '生理期',
+            );
+            if (oldStartIndex >= 0 && startDate.isBefore(existingStartDate)) {
+              // 新日期更早，更新旧记录为自动填充
+              records[oldStartIndex]['note'] = '生理期自动填充';
+            }
+          }
+        }
+      }
+
+      // 填充从开始日期到实际结束日期的记录
+      DateTime currentDate = startDate;
+      int dayIndex = 0;
+
+      while (!currentDate.isAfter(actualEndDate)) {
+        final dateStr = currentDate.toIso8601String().substring(0, 10);
+
+        // 检查该日期是否已有生理期记录
+        final existingIndex = records.indexWhere(
           (r) => r['date'] == dateStr && r['mode'] == '生理期',
         );
 
-        if (!hasRecord) {
+        if (existingIndex >= 0) {
+          // 已有记录，如果这是我们选的开始日期，更新标记
+          if (dayIndex == 0) {
+            records[existingIndex]['note'] = '生理期开始';
+          }
+        } else {
+          // 没有记录，添加新记录
           final currentTime =
               '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
           final formattedDateTime =
-              '${date.year}/${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')} $currentTime';
+              '${currentDate.year}/${currentDate.month.toString().padLeft(2, '0')}/${currentDate.day.toString().padLeft(2, '0')} $currentTime';
 
           records.insert(0, {
-            'title': '${date.month}月${date.day}日 $currentTime',
-            'note': i == 0 ? '生理期开始' : '生理期自动填充', // 第一天标记一下，其他自动填充
+            'title': '${currentDate.month}月${currentDate.day}日 $currentTime',
+            'note': dayIndex == 0 ? '生理期开始' : '生理期自动填充',
             'date': dateStr,
             'time': currentTime,
             'datetime': formattedDateTime,
             'mode': '生理期',
           });
         }
+
+        currentDate = currentDate.add(const Duration(days: 1));
+        dayIndex++;
       }
     });
+
+    await _saveRecords();
+  }
+
+  // 为选中日期添加单条生理期记录（不是开始新周期）
+  // 用于在周期范围内或恢复期内添加记录
+  Future<void> _addPeriodRecordForSelectedDay() async {
+    final now = DateTime.now();
+    final dateStr = _selectedDay.toIso8601String().substring(0, 10);
+
+    // 检查该日期是否已有记录
+    final existingIndex = records.indexWhere(
+      (r) => r['date'] == dateStr && r['mode'] == '生理期',
+    );
+
+    if (existingIndex >= 0) {
+      // 已有记录，不需要添加
+      return;
+    }
+
+    // 添加新记录（标记为自动填充）
+    setState(() {
+      final currentTime =
+          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+      final formattedDateTime =
+          '${_selectedDay.year}/${_selectedDay.month.toString().padLeft(2, '0')}/${_selectedDay.day.toString().padLeft(2, '0')} $currentTime';
+
+      records.insert(0, {
+        'title': '${_selectedDay.month}月${_selectedDay.day}日 $currentTime',
+        'note': '生理期自动填充',
+        'date': dateStr,
+        'time': currentTime,
+        'datetime': formattedDateTime,
+        'mode': '生理期',
+      });
+    });
+
     await _saveRecords();
   }
 
@@ -201,12 +457,444 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
     await _saveRecords();
   }
 
+  // 删除当前周期的所有生理期记录（从开始日期开始的所有记录）
+  // 当用户在生理期第一天点击"没来"时调用
+  Future<void> _removeCurrentCycleRecords() async {
+    final selectedDateStr = _selectedDay.toIso8601String().substring(0, 10);
+
+    // 检查选中日期是否是周期开始日
+    final isStartDay = records.any(
+      (r) =>
+          r['date'] == selectedDateStr &&
+          r['mode'] == '生理期' &&
+          r['note']?.contains('生理期开始') == true,
+    );
+
+    if (!isStartDay) return;
+
+    setState(() {
+      // 删除从开始日期开始的所有当前周期记录
+      // 包括开始日和之后6天内的自动填充记录
+      final startDate = _selectedDay;
+      final endDate = startDate.add(const Duration(days: 6));
+
+      records.removeWhere((r) {
+        if (r['mode'] != '生理期') return false;
+        final recordDateStr = r['date'] ?? '';
+        // 删除从开始日期到结束日期的所有记录
+        return recordDateStr.compareTo(selectedDateStr) >= 0 &&
+            recordDateStr.compareTo(
+                  endDate.toIso8601String().substring(0, 10),
+                ) <=
+                0;
+      });
+    });
+    await _saveRecords();
+  }
+
+  // 标记生理期提前结束
+  // 删除选中日期之后的自动填充记录，保留今天及之前的记录
+  Future<void> _markPeriodEnded() async {
+    final selectedDateStr = _selectedDay.toIso8601String().substring(0, 10);
+
+    // 找到本周期的开始日期
+    final periodRecords = records.where((r) => r['mode'] == '生理期').toList();
+    periodRecords.sort((a, b) => (b['date'] ?? '').compareTo(a['date'] ?? ''));
+
+    // 找到当前周期的开始日期（最近的"生理期开始"记录）
+    String? currentCycleStart;
+    for (var r in periodRecords) {
+      if (r['note']?.contains('生理期开始') == true) {
+        currentCycleStart = r['date'];
+        break;
+      }
+    }
+
+    if (currentCycleStart == null) return;
+
+    setState(() {
+      // 删除选中日期之后的自动填充记录（属于当前周期的）
+      records.removeWhere((r) {
+        if (r['mode'] != '生理期') return false;
+        final recordDate = r['date'] ?? '';
+        // 删除日期在选中日期之后且在当前周期内的记录
+        return recordDate.compareTo(selectedDateStr) > 0 &&
+            recordDate.compareTo(currentCycleStart!) >= 0;
+      });
+
+      // 更新选中日期的记录，标记为经期结束
+      final todayRecordIndex = records.indexWhere(
+        (r) => r['date'] == selectedDateStr && r['mode'] == '生理期',
+      );
+      if (todayRecordIndex >= 0) {
+        records[todayRecordIndex]['note'] = '生理期结束';
+      }
+    });
+
+    await _saveRecords();
+  }
+
+  // 判断选中日期是否是未来日期
+  bool get _isSelectedDayFuture {
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    final selectedDate = DateTime(
+      _selectedDay.year,
+      _selectedDay.month,
+      _selectedDay.day,
+    );
+    return selectedDate.isAfter(todayDate);
+  }
+
+  // 判断是否在"走了"（经期结束）后的5天内
+  // 返回：true = 显示走了/没走，false = 显示来了/没来
+  bool get _isWithin5DaysAfterPeriodEnd {
+    // 找到最近一次"生理期结束"的记录
+    final periodRecords = records.where((r) => r['mode'] == '生理期').toList();
+    if (periodRecords.isEmpty) return false;
+
+    // 按日期降序排序
+    periodRecords.sort((a, b) => (b['date'] ?? '').compareTo(a['date'] ?? ''));
+
+    // 查找最近的"生理期结束"记录
+    String? endDateStr;
+    for (var r in periodRecords) {
+      if (r['note']?.contains('生理期结束') == true) {
+        endDateStr = r['date'];
+        break;
+      }
+    }
+
+    if (endDateStr == null) return false;
+
+    final endDate = DateTime.tryParse(endDateStr);
+    if (endDate == null) return false;
+
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    final daysSinceEnd = todayDate.difference(endDate).inDays;
+
+    // 5天内返回true
+    return daysSinceEnd >= 0 && daysSinceEnd <= 5;
+  }
+
+  // 取消"走了"状态，恢复经期记录
+  Future<void> _cancelPeriodEnd() async {
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+
+    // 找到最近的"生理期结束"记录
+    final periodRecords = records.where((r) => r['mode'] == '生理期').toList();
+    periodRecords.sort((a, b) => (b['date'] ?? '').compareTo(a['date'] ?? ''));
+
+    String? endDateStr;
+    String? cycleStartStr;
+
+    for (var r in periodRecords) {
+      if (r['note']?.contains('生理期结束') == true) {
+        endDateStr = r['date'];
+      }
+      if (r['note']?.contains('生理期开始') == true) {
+        cycleStartStr = r['date'];
+        break;
+      }
+    }
+
+    if (endDateStr == null || cycleStartStr == null) return;
+
+    final endDate = DateTime.tryParse(endDateStr);
+    final cycleStart = DateTime.tryParse(cycleStartStr);
+    if (endDate == null || cycleStart == null) return;
+
+    setState(() {
+      // 将"生理期结束"改回"生理期自动填充"
+      final endRecordIndex = records.indexWhere(
+        (r) => r['date'] == endDateStr && r['mode'] == '生理期',
+      );
+      if (endRecordIndex >= 0) {
+        records[endRecordIndex]['note'] = '生理期自动填充';
+      }
+
+      // 重新填充到今天为止（但不超过6天）
+      final daysSinceStart = todayDate.difference(cycleStart).inDays;
+      final maxDays = daysSinceStart < 6 ? daysSinceStart + 1 : 6;
+
+      for (int i = 0; i < maxDays; i++) {
+        final date = cycleStart.add(Duration(days: i));
+        final dateStr = date.toIso8601String().substring(0, 10);
+
+        final hasRecord = records.any(
+          (r) => r['date'] == dateStr && r['mode'] == '生理期',
+        );
+
+        if (!hasRecord) {
+          final now = DateTime.now();
+          final currentTime =
+              '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+          final formattedDateTime =
+              '${date.year}/${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')} $currentTime';
+
+          records.insert(0, {
+            'title': '${date.month}月${date.day}日 $currentTime',
+            'note': '生理期自动填充',
+            'date': dateStr,
+            'time': currentTime,
+            'datetime': formattedDateTime,
+            'mode': '生理期',
+          });
+        }
+      }
+    });
+
+    await _saveRecords();
+  }
+
+  // 判断选中日期是否是当前周期的第一天（生理期开始日）
+  bool get _isSelectedDayFirstDayOfCycle {
+    final selectedDateStr = _selectedDay.toIso8601String().substring(0, 10);
+    // 检查选中日期是否标记为"生理期开始"
+    return records.any(
+      (r) =>
+          r['date'] == selectedDateStr &&
+          r['mode'] == '生理期' &&
+          r['note']?.contains('生理期开始') == true,
+    );
+  }
+
+  // 判断选中日期是否在当前周期范围内
+  // 返回值：true = 在周期范围内，应显示"走了/没走"
+  // 逻辑：
+  // - 如果周期尚未结束：开始日后的任意一天（只要没有手动点击"走了"）
+  // - 如果周期已结束：开始日后第2天到结束日
+  bool get _isWithinCurrentCycle {
+    final selectedDate = DateTime(
+      _selectedDay.year,
+      _selectedDay.month,
+      _selectedDay.day,
+    );
+
+    // 找到最近一次"生理期开始"的记录
+    final periodRecords = records.where((r) => r['mode'] == '生理期').toList();
+    if (periodRecords.isEmpty) return false;
+
+    periodRecords.sort((a, b) => (b['date'] ?? '').compareTo(a['date'] ?? ''));
+
+    String? cycleStartStr;
+    String? cycleEndStr;
+    for (var r in periodRecords) {
+      if (r['note']?.contains('生理期开始') == true) {
+        cycleStartStr = r['date'];
+        break;
+      }
+    }
+
+    // 检查是否有"生理期结束"记录
+    for (var r in periodRecords) {
+      if (r['note']?.contains('生理期结束') == true) {
+        cycleEndStr = r['date'];
+        break;
+      }
+    }
+
+    if (cycleStartStr == null) return false;
+
+    final cycleStart = DateTime.tryParse(cycleStartStr);
+    if (cycleStart == null) return false;
+
+    final cycleStartDate = DateTime(
+      cycleStart.year,
+      cycleStart.month,
+      cycleStart.day,
+    );
+
+    // 计算选中日期与开始日期的天数差
+    final daysSinceStart = selectedDate.difference(cycleStartDate).inDays;
+
+    // 选中日期必须在开始日之后（第2天及以后）
+    if (daysSinceStart < 1) return false;
+
+    // 如果周期已经结束
+    if (cycleEndStr != null) {
+      final cycleEnd = DateTime.tryParse(cycleEndStr);
+      if (cycleEnd != null) {
+        final cycleEndDate = DateTime(
+          cycleEnd.year,
+          cycleEnd.month,
+          cycleEnd.day,
+        );
+        // 选中日期在结束日之后，不在周期范围内
+        if (selectedDate.isAfter(cycleEndDate)) {
+          return false;
+        }
+      }
+      // 选中日期在开始日之后、结束日当天或之前，在周期范围内
+      return true;
+    }
+
+    // 周期尚未结束：开始日后的任意一天都在周期范围内
+    // 用户可以随时选择"走了"来标记结束
+    return true;
+  }
+
+  // 判断选中日期是否在预计结束日之后（需要提示用户标记结束）
+  // 返回值：true = 在预计结束日之后且周期未结束，"走了"按钮应该高亮
+  // 注意：如果周期已结束，返回false（由恢复期逻辑接管）
+  bool get _isAfterExpectedEndDate {
+    final selectedDate = DateTime(
+      _selectedDay.year,
+      _selectedDay.month,
+      _selectedDay.day,
+    );
+
+    // 找到最近一次"生理期开始"的记录
+    final periodRecords = records.where((r) => r['mode'] == '生理期').toList();
+    if (periodRecords.isEmpty) return false;
+
+    periodRecords.sort((a, b) => (b['date'] ?? '').compareTo(a['date'] ?? ''));
+
+    String? cycleStartStr;
+    String? cycleEndStr;
+    for (var r in periodRecords) {
+      if (r['note']?.contains('生理期开始') == true) {
+        cycleStartStr = r['date'];
+        break;
+      }
+    }
+
+    // 检查是否有"生理期结束"记录
+    for (var r in periodRecords) {
+      if (r['note']?.contains('生理期结束') == true) {
+        cycleEndStr = r['date'];
+        break;
+      }
+    }
+
+    // 如果周期已结束，返回false（由恢复期逻辑接管）
+    if (cycleEndStr != null) return false;
+
+    if (cycleStartStr == null) return false;
+
+    final cycleStart = DateTime.tryParse(cycleStartStr);
+    if (cycleStart == null) return false;
+
+    final cycleStartDate = DateTime(
+      cycleStart.year,
+      cycleStart.month,
+      cycleStart.day,
+    );
+
+    // 预计结束日是开始日后第6天
+    final expectedEndDate = cycleStartDate.add(const Duration(days: 5));
+
+    // 选中日期在预计结束日之后返回true
+    return selectedDate.isAfter(expectedEndDate);
+  }
+
+  // 判断选中日期是否在"走了"后的恢复期内（结束日后5天内）
+  // 返回值：true = 在恢复期内，应显示"走了/没走"
+  bool get _isWithinRecoveryPeriod {
+    final selectedDate = DateTime(
+      _selectedDay.year,
+      _selectedDay.month,
+      _selectedDay.day,
+    );
+
+    // 找到最近的"生理期结束"记录
+    final periodRecords = records.where((r) => r['mode'] == '生理期').toList();
+    if (periodRecords.isEmpty) return false;
+
+    periodRecords.sort((a, b) => (b['date'] ?? '').compareTo(a['date'] ?? ''));
+
+    String? endDateStr;
+    for (var r in periodRecords) {
+      if (r['note']?.contains('生理期结束') == true) {
+        endDateStr = r['date'];
+        break;
+      }
+    }
+
+    if (endDateStr == null) return false;
+
+    final endDate = DateTime.tryParse(endDateStr);
+    if (endDate == null) return false;
+
+    final cycleEndDate = DateTime(endDate.year, endDate.month, endDate.day);
+
+    // 计算选中日期与结束日期的天数差
+    final daysSinceEnd = selectedDate.difference(cycleEndDate).inDays;
+
+    // 在结束日之后的1-5天内返回true
+    return daysSinceEnd >= 1 && daysSinceEnd <= 5;
+  }
+
   // 构建生理期 Switch 按钮
+  // 逻辑说明：
+  // - 未来日期：不显示按钮
+  // - 第一天（生理期开始日）：显示"来了/没来"，让用户可以撤销
+  // - 第2-6天（周期范围内）：显示"走了/没走"
+  // - 无记录但在周期范围内（开始日后6天内）：显示"走了/没走"（用户可能延长）
+  // - 无记录但在恢复期内（结束日后5天内）：显示"走了/没走"（用户可以取消结束）
+  // - 其他情况：显示"来了/没来"
   Widget _buildPeriodSwitchButton() {
+    // 检查是否是未来日期
+    if (_isSelectedDayFuture) {
+      return Container(
+        width: double.infinity,
+        height: 56,
+        decoration: BoxDecoration(
+          color: Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(30),
+        ),
+        alignment: Alignment.center,
+        child: const Text(
+          '未来日期无法操作',
+          style: TextStyle(fontSize: 14, color: Colors.grey),
+        ),
+      );
+    }
+
     final hasRecord = _hasTodayPeriodRecord;
-    final leftText = hasRecord ? '走了' : '来了';
-    final rightText = hasRecord ? '没走' : '没来';
-    final leftSelected = hasRecord; // 已有记录时左边选中("走了")，无记录时也是左边可点击("来了")
+    final isFirstDay = _isSelectedDayFirstDayOfCycle;
+    final isWithinCycle = _isWithinCurrentCycle;
+    final isWithinRecovery = _isWithinRecoveryPeriod;
+
+    // 检查选中日期的记录是否标记为"生理期结束"
+    final selectedDateStr = _selectedDay.toIso8601String().substring(0, 10);
+    final isEnded = records.any(
+      (r) =>
+          r['date'] == selectedDateStr &&
+          r['mode'] == '生理期' &&
+          r['note']?.contains('生理期结束') == true,
+    );
+
+    // 关键逻辑：决定显示哪种按钮
+    // 显示"走了/没走"的情况：
+    // 1. 有记录且不是第一天（在周期范围内）
+    // 2. 无记录但在周期范围内（包括延迟期，用户可以标记结束）
+    // 3. 无记录但在恢复期内（结束日后5天内，用户可以取消结束或延长）
+    final showEndedButtons =
+        (hasRecord && !isFirstDay) ||
+        (!hasRecord && isWithinCycle) ||
+        (!hasRecord && isWithinRecovery);
+
+    final leftText = showEndedButtons ? '走了' : '来了';
+    final rightText = showEndedButtons ? '没走' : '没来';
+
+    // 获取是否在预计结束日之后
+    final isAfterExpected = _isAfterExpectedEndDate;
+
+    // 判断哪边高亮
+    // - 显示"走了/没走"时：
+    //   - 已结束：左边高亮（走了）
+    //   - 在预计结束日之后（第7天及以后）且周期未结束：左边高亮（提示用户该结束了）
+    //   - 在结束日后的恢复期内：左边高亮（走了）
+    //   - 其他：右边高亮（没走）
+    // - 显示"来了/没来"时：
+    //   - 有记录（第一天）：左边高亮（来了）
+    //   - 其他：右边高亮（没来）
+    final leftHighlight = showEndedButtons
+        ? (isEnded || isAfterExpected || isWithinRecovery)
+        : (hasRecord && isFirstDay);
 
     return Container(
       width: double.infinity,
@@ -222,19 +910,37 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
           Expanded(
             child: GestureDetector(
               onTap: () async {
-                if (!hasRecord) {
-                  // 点击"来了"添加记录
-                  await _addPeriodRecord();
+                if (showEndedButtons) {
+                  // 显示"走了/没走"按钮
+                  if (hasRecord && !isEnded) {
+                    // 有记录且未结束，点击"走了"标记经期结束
+                    await _markPeriodEnded();
+                  } else if (!hasRecord && isWithinCycle) {
+                    // 无记录但在周期范围内（未结束），点击"走了"先添加记录再标记结束
+                    await _addPeriodRecordForSelectedDay();
+                    await _markPeriodEnded();
+                  } else if (!hasRecord && isWithinRecovery) {
+                    // 无记录但在恢复期内（已结束后），点击"走了"延长生理期
+                    // 先取消之前的结束状态（恢复记录），然后添加到选中日期并重新标记结束
+                    await _cancelPeriodEnd();
+                    await _addPeriodRecordForSelectedDay();
+                    await _markPeriodEnded();
+                  }
+                  // 已结束状态（有记录），点击"走了"不做操作
                 } else {
-                  // 点击"走了"删除记录
-                  await _removeTodayPeriodRecords();
+                  // 显示"来了/没来"按钮
+                  if (!hasRecord) {
+                    // 无记录，点击"来了"添加记录
+                    await _addPeriodRecord();
+                  }
+                  // 有记录但是第一天，点击"来了"不做操作（已经来了）
                 }
               },
               child: Container(
                 height: double.infinity,
                 margin: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: leftSelected
+                  color: leftHighlight
                       ? const Color(0xFFE581A3)
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(26),
@@ -245,7 +951,7 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: leftSelected
+                    color: leftHighlight
                         ? Colors.white
                         : const Color(0xFFE581A3),
                   ),
@@ -257,17 +963,34 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
           Expanded(
             child: GestureDetector(
               onTap: () async {
-                if (hasRecord) {
-                  // 点击"没走"不做操作（保持记录）
+                if (showEndedButtons) {
+                  // 显示"走了/没走"按钮
+                  if (isEnded) {
+                    // 已结束状态，点击"没走"取消结束，恢复记录
+                    await _cancelPeriodEnd();
+                  } else if (!hasRecord && isWithinRecovery) {
+                    // 无记录但在恢复期内，点击"没走"取消结束，恢复记录
+                    await _cancelPeriodEnd();
+                  } else if (!hasRecord && isWithinCycle) {
+                    // 无记录但在周期范围内，点击"没走"添加生理期记录
+                    // 表示这一天还在生理期中，但不标记结束
+                    await _addPeriodRecordForSelectedDay();
+                  }
+                  // 有记录但未结束，点击"没走"不做操作（保持当前状态）
                 } else {
-                  // 点击"没来"不做操作（没有记录）
+                  // 显示"来了/没来"按钮
+                  if (hasRecord && isFirstDay) {
+                    // 有记录且是第一天，点击"没来"删除该周期的所有记录
+                    await _removeCurrentCycleRecords();
+                  }
+                  // 无记录时，点击"没来"不做操作
                 }
               },
               child: Container(
                 height: double.infinity,
                 margin: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: !leftSelected
+                  color: !leftHighlight
                       ? const Color(0xFFE581A3)
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(26),
@@ -278,7 +1001,7 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: !leftSelected
+                    color: !leftHighlight
                         ? Colors.white
                         : const Color(0xFFE581A3),
                   ),
@@ -1377,7 +2100,43 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
           top: 10,
         ),
         child: _isPeriodMode
-            ? _buildPeriodSwitchButton()
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 周期状态提示
+                  if (_getPeriodStatusText().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _getDelayDays() > 0
+                              ? const Color(0xFFFFE0B2) // 推迟时用橙色背景
+                              : _getDelayDays() == 0
+                              ? const Color(0xFFE1BEE7) // 预计今天用紫色
+                              : const Color(0xFFE8F5E9), // 未到日期用绿色
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          _getPeriodStatusText(),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: _getDelayDays() > 0
+                                ? const Color(0xFFE65100)
+                                : _getDelayDays() == 0
+                                ? const Color(0xFF7B1FA2)
+                                : const Color(0xFF2E7D32),
+                          ),
+                        ),
+                      ),
+                    ),
+                  _buildPeriodSwitchButton(),
+                ],
+              )
             : SizedBox(
                 width: double.infinity,
                 height: 56,

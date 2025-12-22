@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'habit_config.dart';
+import '../widgets/icon_picker.dart';
 
 /// 添加/编辑习惯页面
 class AddHabitPage extends StatefulWidget {
@@ -15,6 +16,7 @@ class AddHabitPage extends StatefulWidget {
 class _AddHabitPageState extends State<AddHabitPage> {
   final _nameController = TextEditingController();
   final _iconController = TextEditingController();
+  String? _selectedIcon; // 从图标库选择的图标（Iconify格式: prefix:name）
 
   String _goalType = 'daily';
   int _targetValue = 1;
@@ -45,7 +47,17 @@ class _AddHabitPageState extends State<AddHabitPage> {
       _goalType = habit.goalType;
       _targetValue = habit.targetValue;
 
-      _iconController.text = habit.icon;
+      // 尝试恢复图标选择
+      if (habit.icon.contains(':')) {
+        // Iconify格式图标
+        _selectedIcon = habit.icon;
+      } else if (HabitConfigManager.deserializeIcon(habit.icon) != null) {
+        // 旧的IconData格式，保留到_iconController
+        _iconController.text = habit.icon;
+      } else {
+        // 纯文字/Emoji
+        _iconController.text = habit.icon;
+      }
 
       // 兼容旧数据
       if (_goalType == 'daily' && habit.weeklyGoal != 7) {
@@ -216,11 +228,16 @@ class _AddHabitPageState extends State<AddHabitPage> {
 
   void _saveHabit() {
     final name = _nameController.text.trim();
-    // Icon logic: if _selectedIcon is set, serialize it. Else use text.
-    final iconText = _iconController.text.trim();
-    final finalIconStr = iconText.isNotEmpty
-        ? iconText
-        : (name.isNotEmpty ? name.substring(0, 1) : '文');
+    // Icon logic: if _selectedIcon is set (Iconify format), use it directly. Else use text.
+    String finalIconStr;
+    if (_selectedIcon != null && _selectedIcon!.isNotEmpty) {
+      finalIconStr = _selectedIcon!;
+    } else {
+      final iconText = _iconController.text.trim();
+      finalIconStr = iconText.isNotEmpty
+          ? iconText
+          : (name.isNotEmpty ? name.substring(0, 1) : '文');
+    }
 
     if (name.isEmpty) {
       ScaffoldMessenger.of(
@@ -262,21 +279,30 @@ class _AddHabitPageState extends State<AddHabitPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Determined what to display in preview
-    final text = _iconController.text.isNotEmpty
-        ? _iconController.text
-        : (_nameController.text.isNotEmpty
-              ? _nameController.text.substring(0, 1)
-              : '文');
-
-    Widget displayIconWidget = Text(
-      text,
-      style: TextStyle(
-        fontSize: 36,
-        fontWeight: FontWeight.bold,
+    // Determine what to display in preview
+    Widget displayIconWidget;
+    if (_selectedIcon != null && _selectedIcon!.isNotEmpty) {
+      // Iconify图标
+      displayIconWidget = HabitConfigManager.getIconWidget(
+        _selectedIcon!,
+        size: 48,
         color: _colors[_selectedColorIndex],
-      ),
-    );
+      );
+    } else {
+      final text = _iconController.text.isNotEmpty
+          ? _iconController.text
+          : (_nameController.text.isNotEmpty
+                ? _nameController.text.substring(0, 1)
+                : '文');
+      displayIconWidget = Text(
+        text,
+        style: TextStyle(
+          fontSize: 36,
+          fontWeight: FontWeight.bold,
+          color: _colors[_selectedColorIndex],
+        ),
+      );
+    }
 
     String goalText = '';
     if (_goalType == 'daily') {
@@ -430,6 +456,61 @@ class _AddHabitPageState extends State<AddHabitPage> {
               ),
             ),
             const SizedBox(height: 10),
+            // 选择图标按钮
+            GestureDetector(
+              onTap: () async {
+                final icon = await showIconPicker(context);
+                if (icon != null) {
+                  setState(() {
+                    _selectedIcon = icon;
+                    _iconController.clear(); // 清除文字输入
+                  });
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.apps, color: Colors.grey.shade600, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          '从图标库选择',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        if (_selectedIcon != null && _selectedIcon!.isNotEmpty)
+                          HabitConfigManager.getIconWidget(
+                            _selectedIcon!,
+                            size: 24,
+                            color: _colors[_selectedColorIndex],
+                          ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.chevron_right,
+                          color: Colors.grey.shade400,
+                          size: 20,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // 文字输入
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -445,7 +526,13 @@ class _AddHabitPageState extends State<AddHabitPage> {
                   contentPadding: const EdgeInsets.all(16),
                   counterText: '',
                 ),
-                onChanged: (value) => setState(() {}),
+                onChanged: (value) {
+                  setState(() {
+                    if (value.isNotEmpty) {
+                      _selectedIcon = null; // 清除图标库选择
+                    }
+                  });
+                },
               ),
             ),
             const SizedBox(height: 40),

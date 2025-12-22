@@ -36,6 +36,7 @@ class DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text('首页'),
         titleTextStyle: const TextStyle(
@@ -44,22 +45,41 @@ class DashboardPageState extends State<DashboardPage> {
         ),
         toolbarHeight: 44,
         centerTitle: true,
-        backgroundColor: const Color(0xFFF4F4F4),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         actions: const [],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 健康习惯模块
-            HabitSummarySection(
-              key: _habitSectionKey,
-              onMoreTap: _navigateToHabitPage,
-            ),
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFFFFEEF3), // 浅粉色
+              Color(0xFFFFF5F8), // 更浅的粉色
+              Colors.white, // 白色
+            ],
+            stops: [0.0, 0.3, 1.0],
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 健康习惯模块
+                HabitSummarySection(
+                  key: _habitSectionKey,
+                  onMoreTap: _navigateToHabitPage,
+                ),
 
-            // 其他功能模块可以在这里添加
-            // ...
-          ],
+                // 其他功能模块可以在这里添加
+                // ...
+              ],
+            ),
+          ),
         ),
       ),
     );

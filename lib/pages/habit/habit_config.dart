@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
@@ -191,11 +192,68 @@ class HabitConfigManager {
     }
   }
 
+  /// 彩色图标集前缀列表
+  static const List<String> _colorfulPrefixes = [
+    'fluent-emoji',
+    'fluent-emoji-flat',
+    'fluent-emoji-high-contrast',
+    'noto',
+    'noto-v1',
+    'twemoji',
+    'openmoji',
+    'emojione',
+    'emojione-v1',
+    'fxemoji',
+    'logos',
+    'skill-icons',
+    'vscode-icons',
+    'file-icons',
+    'devicon',
+    'catppuccin',
+  ];
+
+  /// 判断是否是彩色图标
+  static bool _isColorfulIcon(String iconName) {
+    final prefix = iconName.split(':').first;
+    return _colorfulPrefixes.any((p) => prefix.startsWith(p));
+  }
+
   static Widget getIconWidget(String iconStr, {double? size, Color? color}) {
+    // Iconify icon format: "prefix:name" (e.g., "mdi:heart")
+    if (iconStr.contains(':')) {
+      final parts = iconStr.split(':');
+      if (parts.length == 2) {
+        final url = 'https://api.iconify.design/${parts[0]}/${parts[1]}.svg';
+        final isColorful = _isColorfulIcon(iconStr);
+        return SvgPicture.network(
+          url,
+          width: size ?? 24,
+          height: size ?? 24,
+          // 彩色图标不应用颜色滤镜
+          colorFilter: (color != null && !isColorful)
+              ? ColorFilter.mode(color, BlendMode.srcIn)
+              : null,
+          placeholderBuilder: (context) => SizedBox(
+            width: size ?? 24,
+            height: size ?? 24,
+            child: const Center(
+              child: SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(strokeWidth: 1.5),
+              ),
+            ),
+          ),
+        );
+      }
+    }
+
+    // Check if it's old serialized IconData format (JSON)
     final iconData = deserializeIcon(iconStr);
     if (iconData != null) {
       return Icon(iconData, size: size, color: color);
     }
+
     // Fallback to text (emoji/char)
     return Text(
       iconStr,
@@ -203,7 +261,6 @@ class HabitConfigManager {
         fontSize: size ?? 24,
         color: color,
         fontWeight: FontWeight.bold,
-        // Emojis don't always respect color, but text does
       ),
       textAlign: TextAlign.center,
     );
