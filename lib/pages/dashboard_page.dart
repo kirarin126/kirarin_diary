@@ -1,6 +1,7 @@
 // 仪表盘页面 - 首页内容展示
 import 'package:flutter/material.dart';
 import 'package:first/pages/widgets/habit_summary_section.dart';
+import 'package:first/pages/widgets/memo_summary_section.dart';
 import 'package:first/pages/habit/habit_tracker_page.dart';
 
 /// 仪表盘页面 - 应用首页内容展示
@@ -17,6 +18,7 @@ class DashboardPage extends StatefulWidget {
 class DashboardPageState extends State<DashboardPage> {
   // GlobalKey 用于访问 HabitSummarySectionState
   final GlobalKey<HabitSummarySectionState> _habitSectionKey = GlobalKey();
+  final GlobalKey<MemoSummarySectionState> _memoSectionKey = GlobalKey();
 
   @override
   void initState() {
@@ -74,6 +76,9 @@ class DashboardPageState extends State<DashboardPage> {
                   key: _habitSectionKey,
                   onMoreTap: _navigateToHabitPage,
                 ),
+
+                // 备忘录模块
+                MemoSummarySection(key: _memoSectionKey),
 
                 // 其他功能模块可以在这里添加
                 // ...

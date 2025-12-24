@@ -72,13 +72,15 @@ class HabitSummarySectionState extends State<HabitSummarySection> {
     return {'completed': completedDates.length, 'total': total};
   }
 
-  // 获取最近7天的完成状态
+  // 获取本周的完成状态（周一到周日）
   List<bool> _getWeeklyStatus(String mode) {
     final now = DateTime.now();
+    // 获取本周一的日期
+    final monday = now.subtract(Duration(days: now.weekday - 1));
     final List<bool> status = [];
 
-    for (int i = 6; i >= 0; i--) {
-      final day = now.subtract(Duration(days: i));
+    for (int i = 0; i < 7; i++) {
+      final day = monday.add(Duration(days: i));
       final dateStr = day.toIso8601String().substring(0, 10);
       final hasRecord = records.any(
         (r) => r['date'] == dateStr && r['mode'] == mode,
@@ -228,12 +230,13 @@ class HabitSummarySectionState extends State<HabitSummarySection> {
                   ),
                   const SizedBox(height: 8),
 
-                  // 周状态指示器
+                  // 周状态指示器 (周一到周日)
                   Row(
                     children: weeklyStatus.asMap().entries.map((entry) {
                       final idx = entry.key;
                       final isCompleted = entry.value;
-                      final isToday = idx == 6;
+                      final now = DateTime.now();
+                      final isToday = idx == (now.weekday - 1); // weekday: 1=周一
 
                       Color dotColor;
                       if (isCompleted) {

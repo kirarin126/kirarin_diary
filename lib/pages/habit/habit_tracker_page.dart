@@ -1673,9 +1673,9 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                   horizontal: 32,
                   vertical: 10,
                 ),
-                padding: const EdgeInsets.all(4),
+                padding: const EdgeInsets.all(3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF0E4E8), // 浅粉底色
+                  color: const Color(0xFFFCE4EC), // 浅粉底色（与备忘录一致）
                   borderRadius: BorderRadius.circular(25),
                 ),
                 child: Row(
@@ -1690,13 +1690,13 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                             color: isSelected
                                 ? Colors.white
                                 : Colors.transparent,
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(22),
                             boxShadow: isSelected
                                 ? [
-                                    const BoxShadow(
-                                      color: Colors.black12,
-                                      blurRadius: 2,
-                                      offset: Offset(0, 1),
+                                    BoxShadow(
+                                      color: Colors.black.withAlpha(10),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
                                     ),
                                   ]
                                 : null,
@@ -1706,8 +1706,8 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                             modes[index],
                             style: TextStyle(
                               color: isSelected
-                                  ? Colors.black87
-                                  : Colors.black45,
+                                  ? const Color(0xFFE581A3)
+                                  : Colors.grey.shade500,
                               fontWeight: isSelected
                                   ? FontWeight.bold
                                   : FontWeight.normal,
@@ -1796,6 +1796,7 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                                 color: Colors.transparent,
                               ),
                             ),
+                            startingDayOfWeek: StartingDayOfWeek.monday,
                             onPageChanged: (focusedDay) {
                               setState(() => _focusedDay = focusedDay);
                             },
